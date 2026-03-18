@@ -7,13 +7,13 @@
 function New-RunReport {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)] [string]     $RunId,
-        [Parameter(Mandatory)] [string]     $Mode,
-        [Parameter(Mandatory)] [string[]]   $Milestones,
-        [Parameter(Mandatory)] [PSObject[]] $Findings,
-        [Parameter(Mandatory)] [PSObject[]] $Actions,
-        [Parameter(Mandatory)] [string]     $OutputPath,
-        [Parameter(Mandatory)] [string]     $Domain
+        [Parameter(Mandatory)] [string]   $RunId,
+        [Parameter(Mandatory)] [string]   $Mode,
+        [Parameter(Mandatory)] [string[]] $Milestones,
+        [AllowEmptyCollection()] [PSObject[]] $Findings = @(),
+        [AllowEmptyCollection()] [PSObject[]] $Actions  = @(),
+        [Parameter(Mandatory)] [string]   $OutputPath,
+        [Parameter(Mandatory)] [string]   $Domain
     )
 
     $reportsDir = "$OutputPath\Reports"

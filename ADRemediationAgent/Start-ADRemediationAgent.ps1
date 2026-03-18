@@ -47,7 +47,7 @@ param(
     [ValidateSet("M1","M4","M11","M12")]
     [string[]]$Milestones = @("M1","M4","M11","M12"),
 
-    [string]$OutputPath = ".\ADAgent-Output",
+    [string]$OutputPath = "",
 
     [string]$Domain = $env:USERDNSDOMAIN
 )
@@ -60,7 +60,11 @@ $ScriptRoot   = $PSScriptRoot
 $RunTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $RunId        = "RUN-$RunTimestamp"
 
-# Resolve absolute output path
+# Resolve output path -- default next to the script, not the working directory
+# This prevents the System32 problem when running as admin
+if (-not $OutputPath) {
+    $OutputPath = Join-Path $ScriptRoot "ADAgent-Output"
+}
 $OutputPath = [System.IO.Path]::GetFullPath($OutputPath)
 foreach ($sub in @("Logs","Reports","Baselines","Config")) {
     New-Item -ItemType Directory -Path "$OutputPath\$sub" -Force | Out-Null
@@ -195,14 +199,17 @@ else {
 Write-Host "  Log             : $Global:AgentLogPath" -ForegroundColor White
 
 # Generate run report
+$reportFindings = @($Global:FindingsList)
+$reportActions  = @($Global:ActionLog)
+
 $reportPath = New-RunReport `
-    -RunId     $RunId `
-    -Mode      $Mode `
+    -RunId      $RunId `
+    -Mode       $Mode `
     -Milestones $Milestones `
-    -Findings  $Global:FindingsList `
-    -Actions   $Global:ActionLog `
+    -Findings   $reportFindings `
+    -Actions    $reportActions `
     -OutputPath $OutputPath `
-    -Domain    $Domain
+    -Domain     $Domain
 
 Write-Host "  Report          : $reportPath" -ForegroundColor White
 Write-Host ""

@@ -179,13 +179,13 @@ function Invoke-M12 {
                 if ($groupName -in $tier0Groups -and $m.SamAccountName -match "^svc[-_]|service|svc$") {
                     $svcInPriv.Add($memberObj)
                     Add-Finding -ObjectDN $m.distinguishedName -FindingType "ServiceAccountInTier0" -Severity "HIGH" `
-                        -Description "Service account pattern detected in $groupName: $($m.SamAccountName) -- service accounts should not be Tier 0 members."
+                        -Description "Service account pattern detected in $($groupName): $($m.SamAccountName) -- service accounts should not be Tier 0 members."
                 }
             }
 
         } catch {
-            Write-Host "    [X] Could not enumerate $groupName : $($_.Exception.Message)" -ForegroundColor Red
-            Write-AgentLog -Level ERROR -Milestone $ms -Message "Failed to enumerate $groupName : $($_.Exception.Message)"
+            Write-Host "    [X] Could not enumerate $($groupName): $($_.Exception.Message)" -ForegroundColor Red
+            Write-AgentLog -Level ERROR -Milestone $ms -Message "Failed to enumerate $($groupName): $($_.Exception.Message)"
         }
     }
 
