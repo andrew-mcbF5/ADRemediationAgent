@@ -55,7 +55,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# ── Bootstrap ────────────────────────────────────────────────────────────────
+# -- Bootstrap -----------------------------------------------------------------
 $ScriptRoot   = $PSScriptRoot
 $RunTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $RunId        = "RUN-$RunTimestamp"
@@ -83,16 +83,16 @@ $Global:RunTimestamp  = $RunTimestamp
 $Global:FindingsList  = [System.Collections.Generic.List[PSObject]]::new()
 $Global:ActionLog     = [System.Collections.Generic.List[PSObject]]::new()
 
-# ── Banner ────────────────────────────────────────────────────────────────────
+# -- Banner --------------------------------------------------------------------
 Clear-Host
 Write-Host ""
-Write-Host "  ╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "  ║        AD REMEDIATION AGENT  v1.0                       ║" -ForegroundColor Cyan
-Write-Host "  ║        $RunId                          ║" -ForegroundColor Cyan
-Write-Host "  ╚══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
+Write-Host "  |        AD REMEDIATION AGENT  v1.0                        |" -ForegroundColor Cyan
+Write-Host "  |        $RunId                           |" -ForegroundColor Cyan
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Domain   : $Domain" -ForegroundColor White
-Write-Host "  Mode     : " -NoNewline -ForegroundColor White
+Write-Host "  Domain    : $Domain" -ForegroundColor White
+Write-Host "  Mode      : " -NoNewline -ForegroundColor White
 switch ($Mode) {
     "Discover"  { Write-Host $Mode -ForegroundColor Yellow }
     "Remediate" { Write-Host $Mode -ForegroundColor Red }
@@ -100,19 +100,20 @@ switch ($Mode) {
     "Baseline"  { Write-Host $Mode -ForegroundColor Magenta }
 }
 Write-Host "  Milestones: $($Milestones -join ', ')" -ForegroundColor White
-Write-Host "  Output   : $OutputPath" -ForegroundColor White
+Write-Host "  Output    : $OutputPath" -ForegroundColor White
 Write-Host ""
 
 Write-AgentLog -Level INFO -Message "Agent started. Mode=$Mode Domain=$Domain Milestones=$($Milestones -join ',')"
 
-# ── Preflight checks ──────────────────────────────────────────────────────────
+# -- Preflight checks ----------------------------------------------------------
 Write-Host "  [ Preflight ]" -ForegroundColor DarkCyan
 try {
     $null = Get-ADDomain -Identity $Domain
-    Write-Host "  ✓ AD connectivity confirmed for $Domain" -ForegroundColor Green
+    Write-Host "  [OK] AD connectivity confirmed for $Domain" -ForegroundColor Green
     Write-AgentLog -Level INFO -Message "AD connectivity OK for $Domain"
-} catch {
-    Write-Host "  ✗ Cannot connect to AD domain '$Domain': $_" -ForegroundColor Red
+}
+catch {
+    Write-Host "  [FAIL] Cannot connect to AD domain '$Domain': $_" -ForegroundColor Red
     Write-AgentLog -Level ERROR -Message "AD connectivity failed: $_"
     exit 1
 }
@@ -120,7 +121,6 @@ try {
 if ($Mode -eq "Report") {
     Write-Host ""
     Write-Host "  [ Report Mode - loading stored baselines ]" -ForegroundColor DarkCyan
-    . "$ScriptRoot\Core\Compare-Baseline.ps1"
     $report = Invoke-DriftReport -OutputPath $OutputPath -Domain $Domain
     Write-Host ""
     Write-Host "  Report written to: $($report.Path)" -ForegroundColor Green
@@ -128,7 +128,7 @@ if ($Mode -eq "Report") {
     exit 0
 }
 
-# ── Load & Execute Milestone Modules ─────────────────────────────────────────
+# -- Load and Execute Milestone Modules ----------------------------------------
 $milestoneMap = @{
     "M1"  = "$ScriptRoot\Modules\Invoke-M1-DCHealthBaseline.ps1"
     "M4"  = "$ScriptRoot\Modules\Invoke-M4-UnconstrainedDelegation.ps1"
@@ -148,48 +148,61 @@ foreach ($ms in $Milestones) {
     $msName     = $milestoneNames[$ms]
 
     Write-Host ""
-    Write-Host "  ┌─────────────────────────────────────────────────────────┐" -ForegroundColor DarkGray
-    Write-Host "  │  $ms : $msName" -ForegroundColor White
-    Write-Host "  └─────────────────────────────────────────────────────────┘" -ForegroundColor DarkGray
+    Write-Host "  +---------------------------------------------------------+" -ForegroundColor DarkGray
+    Write-Host "    $ms : $msName" -ForegroundColor White
+    Write-Host "  +---------------------------------------------------------+" -ForegroundColor DarkGray
 
     Write-AgentLog -Level INFO -Message "Starting milestone $ms - $msName"
 
     if (Test-Path $modulePath) {
         . $modulePath
         & "Invoke-$ms" -Mode $Mode -Domain $Domain -OutputPath $OutputPath
-    } else {
+    }
+    else {
         Write-Host "  [WARN] Module not found: $modulePath" -ForegroundColor Yellow
         Write-AgentLog -Level WARN -Message "Module missing for $ms at $modulePath"
     }
 }
 
-# ── Baseline snapshot (Baseline mode) ────────────────────────────────────────
+# -- Baseline snapshot (Baseline mode) -----------------------------------------
 if ($Mode -eq "Baseline") {
     Write-Host ""
     Write-Host "  [ Saving approved baseline snapshot ]" -ForegroundColor Magenta
     Save-Baseline -RunId $RunId -OutputPath $OutputPath
-    Write-Host "  ✓ Baseline saved. Future Discover/Remediate runs will delta against this." -ForegroundColor Green
+    Write-Host "  [OK] Baseline saved. Future Discover/Remediate runs will delta against this." -ForegroundColor Green
     Write-AgentLog -Level INFO -Message "Baseline snapshot saved for RunId $RunId"
 }
 
-# ── Run Summary ───────────────────────────────────────────────────────────────
+# -- Run Summary ---------------------------------------------------------------
 Write-Host ""
-Write-Host "  ╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "  ║  RUN COMPLETE                                            ║" -ForegroundColor Cyan
-Write-Host "  ╚══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
+Write-Host "  |  RUN COMPLETE                                             |" -ForegroundColor Cyan
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
 Write-Host ""
 
 $totalFindings = $Global:FindingsList.Count
 $totalActions  = $Global:ActionLog.Count
 
 Write-Host "  Findings logged : $totalFindings" -ForegroundColor Yellow
-Write-Host "  Actions taken   : $totalActions" -ForegroundColor $(if($totalActions -gt 0){"Red"}else{"Green"})
+
+if ($totalActions -gt 0) {
+    Write-Host "  Actions taken   : $totalActions" -ForegroundColor Red
+}
+else {
+    Write-Host "  Actions taken   : $totalActions" -ForegroundColor Green
+}
+
 Write-Host "  Log             : $Global:AgentLogPath" -ForegroundColor White
 
 # Generate run report
-$reportPath = New-RunReport -RunId $RunId -Mode $Mode -Milestones $Milestones `
-              -Findings $Global:FindingsList -Actions $Global:ActionLog `
-              -OutputPath $OutputPath -Domain $Domain
+$reportPath = New-RunReport `
+    -RunId     $RunId `
+    -Mode      $Mode `
+    -Milestones $Milestones `
+    -Findings  $Global:FindingsList `
+    -Actions   $Global:ActionLog `
+    -OutputPath $OutputPath `
+    -Domain    $Domain
 
 Write-Host "  Report          : $reportPath" -ForegroundColor White
 Write-Host ""

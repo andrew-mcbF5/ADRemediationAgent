@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Milestone 1 — DC Health & Baseline
+    Milestone 1 -- DC Health & Baseline
 
     Checks:
       - Replication status (repadmin)
@@ -12,10 +12,10 @@
       - AD Recycle Bin status
       - Functional levels (domain + forest)
 
-    Mode: Discover  → enumerate and log findings only
-    Mode: Remediate → no auto-remediation (health checks are informational);
+    Mode: Discover  -> enumerate and log findings only
+    Mode: Remediate -> no auto-remediation (health checks are informational);
                       flags CRITICAL issues and prompts operator to acknowledge
-    Mode: Baseline  → same as Discover, feeds into baseline snapshot
+    Mode: Baseline  -> same as Discover, feeds into baseline snapshot
 #>
 
 function Invoke-M1 {
@@ -40,11 +40,11 @@ function Invoke-M1 {
             Data        = $Data
         }
         $Global:FindingsList.Add($finding)
-        Write-AgentLog -Level FINDING -Milestone $ms -Message "[$Severity] $FindingType — $ObjectDN : $Description" -Data $Data
+        Write-AgentLog -Level FINDING -Milestone $ms -Message "[$Severity] $FindingType -- $ObjectDN : $Description" -Data $Data
     }
 
-    # ── 1. Domain & Forest Functional Levels ─────────────────────────────────
-    Write-Host "  → Checking domain/forest functional levels..." -ForegroundColor DarkCyan
+    # -- 1. Domain & Forest Functional Levels ---------------------------------
+    Write-Host "  -> Checking domain/forest functional levels..." -ForegroundColor DarkCyan
     try {
         $domainObj = Get-ADDomain -Identity $Domain
         $forestObj = Get-ADForest
@@ -60,7 +60,7 @@ function Invoke-M1 {
         $legacyLevels = @("Windows2003Domain","Windows2008Domain","Windows2008R2Domain","Windows2012Domain","Windows2012R2Domain")
         if ($domFL -in $legacyLevels) {
             Add-Finding -ObjectDN $Domain -FindingType "LegacyFunctionalLevel" -Severity "MEDIUM" `
-                -Description "Domain functional level is $domFL — consider raising after all DCs are on Server 2025."
+                -Description "Domain functional level is $domFL -- consider raising after all DCs are on Server 2025."
         }
 
         # Store as baseline data
@@ -73,8 +73,8 @@ function Invoke-M1 {
         Add-Finding -ObjectDN $Domain -FindingType "FunctionalLevelCheckFailed" -Severity "HIGH" -Description $_.Exception.Message
     }
 
-    # ── 2. DC Inventory & OS Versions ────────────────────────────────────────
-    Write-Host "  → Enumerating Domain Controllers..." -ForegroundColor DarkCyan
+    # -- 2. DC Inventory & OS Versions ----------------------------------------
+    Write-Host "  -> Enumerating Domain Controllers..." -ForegroundColor DarkCyan
     try {
         $dcs = Get-ADDomainController -Filter * -Server $Domain
 
@@ -93,7 +93,7 @@ function Invoke-M1 {
             if ($osVer -and $osVer -notmatch "2022|2025") {
                 $sev = if ($osVer -match "2012|2008|2003") { "HIGH" } else { "MEDIUM" }
                 Add-Finding -ObjectDN $dc.HostName -FindingType "LegacyDCOS" -Severity $sev `
-                    -Description "DC is running $osVer — target is Windows Server 2025."
+                    -Description "DC is running $osVer -- target is Windows Server 2025."
             }
 
             # DNS check
@@ -110,8 +110,8 @@ function Invoke-M1 {
         Add-Finding -ObjectDN $Domain -FindingType "DCEnumerationFailed" -Severity "CRITICAL" -Description $_.Exception.Message
     }
 
-    # ── 3. FSMO Role Holders ──────────────────────────────────────────────────
-    Write-Host "  → Checking FSMO roles..." -ForegroundColor DarkCyan
+    # -- 3. FSMO Role Holders --------------------------------------------------
+    Write-Host "  -> Checking FSMO roles..." -ForegroundColor DarkCyan
     try {
         $domainObj = Get-ADDomain -Identity $Domain
         $forestObj = Get-ADForest
@@ -136,18 +136,18 @@ function Invoke-M1 {
         Add-Finding -ObjectDN $Domain -FindingType "FSMOCheckFailed" -Severity "HIGH" -Description $_.Exception.Message
     }
 
-    # ── 4. Replication Status ─────────────────────────────────────────────────
-    Write-Host "  → Checking AD replication (repadmin)..." -ForegroundColor DarkCyan
+    # -- 4. Replication Status -------------------------------------------------
+    Write-Host "  -> Checking AD replication (repadmin)..." -ForegroundColor DarkCyan
     try {
         $replOutput = & repadmin /replsummary 2>&1
         $replLines  = $replOutput | Where-Object { $_ -match "error|fail|warning" -and $_ -notmatch "^$" }
 
         if ($replLines.Count -eq 0) {
-            Write-Host "    ✓ No replication errors detected" -ForegroundColor Green
+            Write-Host "    [OK] No replication errors detected" -ForegroundColor Green
             Write-AgentLog -Level INFO -Milestone $ms -Message "Replication summary: no errors"
         } else {
             foreach ($line in $replLines) {
-                Write-Host "    ⚠ $line" -ForegroundColor Yellow
+                Write-Host "    [!] $line" -ForegroundColor Yellow
                 Add-Finding -ObjectDN "replication" -FindingType "ReplicationError" -Severity "HIGH" `
                     -Description $line.ToString().Trim()
             }
@@ -162,8 +162,8 @@ function Invoke-M1 {
         Add-Finding -ObjectDN "replication" -FindingType "ReplicationCheckFailed" -Severity "HIGH" -Description $_.Exception.Message
     }
 
-    # ── 5. SYSVOL / DFSR Health ──────────────────────────────────────────────
-    Write-Host "  → Checking SYSVOL/DFSR health..." -ForegroundColor DarkCyan
+    # -- 5. SYSVOL / DFSR Health ----------------------------------------------
+    Write-Host "  -> Checking SYSVOL/DFSR health..." -ForegroundColor DarkCyan
     try {
         # Check DFSR replication group
         $sysvolCheck = & dfsrdiag ReplicationState 2>&1
@@ -171,22 +171,22 @@ function Invoke-M1 {
             Add-Finding -ObjectDN "SYSVOL" -FindingType "SYSVOLReplicationIssue" -Severity "HIGH" `
                 -Description ($sysvolCheck | Where-Object { $_ -match "Error|Warning" } | Select-Object -First 3) -join "; "
         } else {
-            Write-Host "    ✓ SYSVOL/DFSR appears healthy" -ForegroundColor Green
+            Write-Host "    [OK] SYSVOL/DFSR appears healthy" -ForegroundColor Green
             Write-AgentLog -Level INFO -Milestone $ms -Message "SYSVOL/DFSR: no issues detected"
         }
     } catch {
         Write-AgentLog -Level WARN -Milestone $ms -Message "dfsrdiag not available or failed: $($_.Exception.Message)"
     }
 
-    # ── 6. AD Recycle Bin ────────────────────────────────────────────────────
-    Write-Host "  → Checking AD Recycle Bin status..." -ForegroundColor DarkCyan
+    # -- 6. AD Recycle Bin ----------------------------------------------------
+    Write-Host "  -> Checking AD Recycle Bin status..." -ForegroundColor DarkCyan
     try {
         $recycleBin = Get-ADOptionalFeature -Filter { Name -like "Recycle Bin Feature" }
         if ($recycleBin.EnabledScopes.Count -gt 0) {
-            Write-Host "    ✓ AD Recycle Bin is enabled" -ForegroundColor Green
+            Write-Host "    [OK] AD Recycle Bin is enabled" -ForegroundColor Green
             Write-AgentLog -Level INFO -Milestone $ms -Message "AD Recycle Bin: ENABLED"
         } else {
-            Write-Host "    ⚠ AD Recycle Bin is NOT enabled" -ForegroundColor Yellow
+            Write-Host "    [!] AD Recycle Bin is NOT enabled" -ForegroundColor Yellow
             Add-Finding -ObjectDN $Domain -FindingType "RecycleBinDisabled" -Severity "MEDIUM" `
                 -Description "AD Recycle Bin is not enabled. Enable it to allow object recovery without restore."
         }
@@ -194,8 +194,8 @@ function Invoke-M1 {
         Write-AgentLog -Level WARN -Milestone $ms -Message "Could not check Recycle Bin: $($_.Exception.Message)"
     }
 
-    # ── 7. Time Sync (PDC Emulator) ──────────────────────────────────────────
-    Write-Host "  → Checking time sync on PDC Emulator..." -ForegroundColor DarkCyan
+    # -- 7. Time Sync (PDC Emulator) ------------------------------------------
+    Write-Host "  -> Checking time sync on PDC Emulator..." -ForegroundColor DarkCyan
     try {
         $domainObj = Get-ADDomain -Identity $Domain
         $pdcName   = $domainObj.PDCEmulator
@@ -205,21 +205,21 @@ function Invoke-M1 {
             Add-Finding -ObjectDN $pdcName -FindingType "TimeSyncIssue" -Severity "HIGH" `
                 -Description "Time sync issue on PDC Emulator $pdcName"
         } else {
-            Write-Host "    ✓ Time sync OK on $pdcName" -ForegroundColor Green
+            Write-Host "    [OK] Time sync OK on $pdcName" -ForegroundColor Green
             Write-AgentLog -Level INFO -Milestone $ms -Message "Time sync OK on PDC $pdcName"
         }
     } catch {
         Write-AgentLog -Level WARN -Milestone $ms -Message "w32tm check failed: $($_.Exception.Message)"
     }
 
-    # ── Remediate mode: prompt acknowledgment for CRITICAL/HIGH ──────────────
+    # -- Remediate mode: prompt acknowledgment for CRITICAL/HIGH --------------
     if ($Mode -eq "Remediate") {
         $criticalFindings = $Global:FindingsList | Where-Object { $_.Milestone -eq $ms -and $_.Severity -in @("CRITICAL","HIGH") }
 
         if ($criticalFindings.Count -gt 0) {
             Write-Host ""
-            Write-Host "  ⚠  M1 has $($criticalFindings.Count) HIGH/CRITICAL health findings." -ForegroundColor Red
-            Write-Host "     These require manual investigation — no automated remediation is applied." -ForegroundColor Yellow
+            Write-Host "  [!]  M1 has $($criticalFindings.Count) HIGH/CRITICAL health findings." -ForegroundColor Red
+            Write-Host "     These require manual investigation -- no automated remediation is applied." -ForegroundColor Yellow
             Write-Host ""
 
             foreach ($f in $criticalFindings) {
@@ -235,9 +235,9 @@ function Invoke-M1 {
         }
     }
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+    # -- Summary ---------------------------------------------------------------
     $msFindings = $Global:FindingsList | Where-Object { $_.Milestone -eq $ms -and $_.Severity -ne "INFO" }
     Write-Host ""
-    Write-Host "  M1 complete — $($msFindings.Count) actionable finding(s)" -ForegroundColor $(if($msFindings.Count -gt 0){"Yellow"}else{"Green"})
+    Write-Host "  M1 complete -- $($msFindings.Count) actionable finding(s)" -ForegroundColor $(if($msFindings.Count -gt 0){"Yellow"}else{"Green"})
     Write-AgentLog -Level INFO -Milestone $ms -Message "M1 complete. Actionable findings: $($msFindings.Count)"
 }

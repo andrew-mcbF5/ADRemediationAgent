@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-    Save-Baseline  — Serialise the current $Global:FindingsList state as an approved baseline.
-    Compare-Baseline — Diff current findings against the latest stored baseline.
-    Invoke-DriftReport — Called in Report mode; loads baselines and generates full drift analysis.
+    Save-Baseline  -- Serialise the current $Global:FindingsList state as an approved baseline.
+    Compare-Baseline -- Diff current findings against the latest stored baseline.
+    Invoke-DriftReport -- Called in Report mode; loads baselines and generates full drift analysis.
 #>
 
 function Save-Baseline {
@@ -47,7 +47,7 @@ function Compare-Baseline {
     $baselineFile = "$OutputPath\Baselines\baseline-latest.json"
 
     if (-not (Test-Path $baselineFile)) {
-        Write-AgentLog -Level WARN -Message "No baseline found at $baselineFile — delta comparison skipped. Run with -Mode Baseline first."
+        Write-AgentLog -Level WARN -Message "No baseline found at $baselineFile -- delta comparison skipped. Run with -Mode Baseline first."
         return $null
     }
 
@@ -162,7 +162,7 @@ function Invoke-DriftReport {
 </style>
 </head>
 <body>
-<h1>AD Remediation Agent — Drift Report</h1>
+<h1>AD Remediation Agent -- Drift Report</h1>
 <h2>Domain: $Domain &nbsp;|&nbsp; Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss") &nbsp;|&nbsp; Baseline Run: $($baseline.RunId)</h2>
 
 <div class="card">
@@ -174,7 +174,7 @@ function Invoke-DriftReport {
 </div>
 
 <div class="card">
-  <h3>Baseline Snapshot — $($baseline.RunId) <span class="badge-baseline">($(([datetime]$baseline.Timestamp).ToString("yyyy-MM-dd")))</span></h3>
+  <h3>Baseline Snapshot -- $($baseline.RunId) <span class="badge-baseline">($(([datetime]$baseline.Timestamp).ToString("yyyy-MM-dd")))</span></h3>
   <p>Findings present at baseline. Items no longer appearing = resolved drift.</p>
   <table>
     <tr><th>Milestone</th><th>Finding Type</th><th>Object DN</th><th>Severity</th><th>Description</th></tr>

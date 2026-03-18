@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Milestone 4 — Unconstrained Delegation Remediation
+    Milestone 4 -- Unconstrained Delegation Remediation
 
     Finds all computer and user accounts with unconstrained Kerberos delegation
     enabled (TrustedForDelegation = $true), excluding Domain Controllers
@@ -8,17 +8,17 @@
 
     Risk:  If a privileged user authenticates to a host with unconstrained
            delegation, the host can impersonate that user to ANY service in
-           the domain — a classic lateral movement / privilege escalation path.
+           the domain -- a classic lateral movement / privilege escalation path.
 
     Remediation options (human-selected per object):
       1. Remove unconstrained delegation entirely (if service no longer needs delegation)
       2. Migrate to constrained delegation (operator must specify target SPNs)
-      3. Skip — add to exception list with justification
+      3. Skip -- add to exception list with justification
 
     Mode Behaviour:
-      Discover  → enumerate and log only
-      Remediate → enumerate + human-approved per-object remediation
-      Baseline  → same as Discover
+      Discover  -> enumerate and log only
+      Remediate -> enumerate + human-approved per-object remediation
+      Baseline  -> same as Discover
 #>
 
 function Invoke-M4 {
@@ -43,7 +43,7 @@ function Invoke-M4 {
             Data        = $Data
         }
         $Global:FindingsList.Add($finding)
-        Write-AgentLog -Level FINDING -Milestone $ms -Message "[$Severity] $FindingType — $ObjectDN" -Data $Data
+        Write-AgentLog -Level FINDING -Milestone $ms -Message "[$Severity] $FindingType -- $ObjectDN" -Data $Data
     }
 
     function Add-Action {
@@ -58,22 +58,22 @@ function Invoke-M4 {
         })
     }
 
-    # ── Enumerate unconstrained delegation ───────────────────────────────────
-    Write-Host "  → Scanning for unconstrained delegation (computers)..." -ForegroundColor DarkCyan
+    # -- Enumerate unconstrained delegation -----------------------------------
+    Write-Host "  -> Scanning for unconstrained delegation (computers)..." -ForegroundColor DarkCyan
 
     $flaggedComputers = @()
     $flaggedUsers     = @()
 
     try {
-        $flaggedComputers = Get-ADComputer -Filter { TrustedForDelegation -eq $true } `
+        $flaggedComputers = @(Get-ADComputer -Filter { TrustedForDelegation -eq $true } `
             -Properties TrustedForDelegation, OperatingSystem, Description, LastLogonDate, ServicePrincipalNames `
             -Server $Domain |
-            Where-Object { $_.DistinguishedName -notmatch "Domain Controllers" }
+            Where-Object { $_.DistinguishedName -notmatch "Domain Controllers" })
 
-        Write-Host "  → Scanning for unconstrained delegation (user accounts)..." -ForegroundColor DarkCyan
-        $flaggedUsers = Get-ADUser -Filter { TrustedForDelegation -eq $true } `
+        Write-Host "  -> Scanning for unconstrained delegation (user accounts)..." -ForegroundColor DarkCyan
+        $flaggedUsers = @(Get-ADUser -Filter { TrustedForDelegation -eq $true } `
             -Properties TrustedForDelegation, Description, LastLogonDate, MemberOf `
-            -Server $Domain
+            -Server $Domain)
 
     } catch {
         Add-Finding -ObjectDN $Domain -FindingType "DelegationScanFailed" -Severity "HIGH" `
@@ -84,13 +84,13 @@ function Invoke-M4 {
     $totalFlagged = $flaggedComputers.Count + $flaggedUsers.Count
 
     if ($totalFlagged -eq 0) {
-        Write-Host "  ✓ No unconstrained delegation found (excluding DCs)" -ForegroundColor Green
+        Write-Host "  [OK] No unconstrained delegation found (excluding DCs)" -ForegroundColor Green
         Write-AgentLog -Level INFO -Milestone $ms -Message "No unconstrained delegation found"
         return
     }
 
     Write-Host ""
-    Write-Host "  ⚠  Found $($flaggedComputers.Count) computer(s) and $($flaggedUsers.Count) user(s) with unconstrained delegation" -ForegroundColor Yellow
+    Write-Host "  [!]  Found $($flaggedComputers.Count) computer(s) and $($flaggedUsers.Count) user(s) with unconstrained delegation" -ForegroundColor Yellow
     Write-Host ""
 
     # Register findings
@@ -101,18 +101,18 @@ function Invoke-M4 {
     }
     foreach ($u in $flaggedUsers) {
         Add-Finding -ObjectDN $u.DistinguishedName -FindingType "UnconstrainedDelegation_User" -Severity "CRITICAL" `
-            -Description "User account has TrustedForDelegation=true — high impersonation risk."
+            -Description "User account has TrustedForDelegation=true -- high impersonation risk."
     }
 
-    # ── Discover mode exits here ──────────────────────────────────────────────
+    # -- Discover mode exits here ----------------------------------------------
     if ($Mode -ne "Remediate") {
-        Write-Host "  M4 discovery complete — $totalFlagged object(s) flagged." -ForegroundColor Yellow
+        Write-Host "  M4 discovery complete -- $totalFlagged object(s) flagged." -ForegroundColor Yellow
         Write-AgentLog -Level INFO -Milestone $ms -Message "M4 discover complete. $totalFlagged flagged."
         return
     }
 
-    # ── Remediate mode: per-object approval ──────────────────────────────────
-    Write-Host "  [ Remediation mode — each object requires individual approval ]" -ForegroundColor Red
+    # -- Remediate mode: per-object approval ----------------------------------
+    Write-Host "  [ Remediation mode -- each object requires individual approval ]" -ForegroundColor Red
     Write-Host ""
 
     # Process computers
@@ -120,7 +120,7 @@ function Invoke-M4 {
         $displayName = "$($c.Name) ($($c.DistinguishedName))"
         $spns        = if ($c.ServicePrincipalNames) { $c.ServicePrincipalNames -join ", " } else { "(none)" }
 
-        Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+        Write-Host "  ------------------------------------------------------------" -ForegroundColor DarkGray
         Write-Host "  Object Type : Computer" -ForegroundColor White
         Write-Host "  SPNs        : $spns" -ForegroundColor Gray
         Write-Host "  OS          : $($c.OperatingSystem)" -ForegroundColor Gray
@@ -149,13 +149,13 @@ function Invoke-M4 {
             if ($approved) {
                 try {
                     Set-ADComputer -Identity $c.SamAccountName -TrustedForDelegation $false -Server $Domain
-                    Write-Host "  ✓ Unconstrained delegation removed from $($c.Name)" -ForegroundColor Green
+                    Write-Host "  [OK] Unconstrained delegation removed from $($c.Name)" -ForegroundColor Green
                     Write-AgentLog -Level ACTION -Milestone $ms `
                         -Message "Removed TrustedForDelegation from computer: $($c.DistinguishedName)"
                     Add-Action -Action "RemoveUnconstrainedDelegation" -Target $c.DistinguishedName `
                                -Status "SUCCESS" -Detail "TrustedForDelegation set to false"
                 } catch {
-                    Write-Host "  ✗ Failed: $($_.Exception.Message)" -ForegroundColor Red
+                    Write-Host "  [X] Failed: $($_.Exception.Message)" -ForegroundColor Red
                     Write-AgentLog -Level ERROR -Milestone $ms -Message "Failed to modify $($c.Name): $($_.Exception.Message)"
                     Add-Action -Action "RemoveUnconstrainedDelegation" -Target $c.DistinguishedName `
                                -Status "FAILED" -Detail $_.Exception.Message
@@ -171,7 +171,7 @@ function Invoke-M4 {
     foreach ($u in $flaggedUsers) {
         $displayName = "$($u.SamAccountName) ($($u.DistinguishedName))"
 
-        Write-Host "  ────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+        Write-Host "  ------------------------------------------------------------" -ForegroundColor DarkGray
         Write-Host "  Object Type : User Account" -ForegroundColor White
         Write-Host "  Description : $($u.Description)" -ForegroundColor Gray
         Write-Host "  Last Logon  : $($u.LastLogonDate)" -ForegroundColor Gray
@@ -199,13 +199,13 @@ function Invoke-M4 {
             if ($approved) {
                 try {
                     Set-ADUser -Identity $u.SamAccountName -TrustedForDelegation $false -Server $Domain
-                    Write-Host "  ✓ Unconstrained delegation removed from user $($u.SamAccountName)" -ForegroundColor Green
+                    Write-Host "  [OK] Unconstrained delegation removed from user $($u.SamAccountName)" -ForegroundColor Green
                     Write-AgentLog -Level ACTION -Milestone $ms `
                         -Message "Removed TrustedForDelegation from user: $($u.DistinguishedName)"
                     Add-Action -Action "RemoveUnconstrainedDelegation_User" -Target $u.DistinguishedName `
                                -Status "SUCCESS" -Detail "TrustedForDelegation set to false on user"
                 } catch {
-                    Write-Host "  ✗ Failed: $($_.Exception.Message)" -ForegroundColor Red
+                    Write-Host "  [X] Failed: $($_.Exception.Message)" -ForegroundColor Red
                     Add-Action -Action "RemoveUnconstrainedDelegation_User" -Target $u.DistinguishedName `
                                -Status "FAILED" -Detail $_.Exception.Message
                 }
@@ -217,6 +217,6 @@ function Invoke-M4 {
 
     $msActions = $Global:ActionLog | Where-Object Milestone -eq $ms
     Write-Host ""
-    Write-Host "  M4 complete — $($msActions.Count) change(s) applied" -ForegroundColor $(if($msActions.Count -gt 0){"Magenta"}else{"Green"})
+    Write-Host "  M4 complete -- $($msActions.Count) change(s) applied" -ForegroundColor $(if($msActions.Count -gt 0){"Magenta"}else{"Green"})
     Write-AgentLog -Level INFO -Milestone $ms -Message "M4 remediation complete. Changes: $($msActions.Count)"
 }

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    New-RunReport — Generates a per-run HTML summary report.
+    New-RunReport -- Generates a per-run HTML summary report.
     Called at the end of every Discover / Remediate / Baseline run.
 #>
 
@@ -22,7 +22,7 @@ function New-RunReport {
     $reportFile = "$reportsDir\RunReport-$RunId.html"
     $ts         = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-    # ── Compare to baseline if available ─────────────────────────────────────
+    # -- Compare to baseline if available -------------------------------------
     $deltaSection = ""
     $baselineFile = "$OutputPath\Baselines\baseline-latest.json"
 
@@ -42,7 +42,7 @@ function New-RunReport {
 
         $deltaSection = @"
 <div class='card'>
-  <h3>🔍 Delta vs Baseline ($($baseline.RunId))</h3>
+  <h3>Delta vs Baseline ($($baseline.RunId))</h3>
   <p><span class='badge new'>NEW</span> $($newF.Count) findings not present at baseline &nbsp;|&nbsp; <span class='badge persist'>PERSISTING</span> $($persF.Count) findings unchanged since baseline</p>
   <h4>New Since Baseline</h4>
   <table><tr><th>Milestone</th><th>Type</th><th>Object DN</th><th>Severity</th><th>Description</th></tr>
@@ -56,7 +56,7 @@ function New-RunReport {
 "@
     }
 
-    # ── Build findings table ──────────────────────────────────────────────────
+    # -- Build findings table --------------------------------------------------
     $findingRows = ($Findings | ForEach-Object {
         $sevColour = switch ($_.Severity) {
             "CRITICAL" { "#e74c3c" }
@@ -69,13 +69,13 @@ function New-RunReport {
         "<tr><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td style='color:$sevColour;font-weight:bold'>$($_.Severity)</td><td>$($_.Description)</td></tr>"
     }) -join "`n"
 
-    # ── Build actions table ───────────────────────────────────────────────────
+    # -- Build actions table ---------------------------------------------------
     $actionRows = ($Actions | ForEach-Object {
         $statusColour = if ($_.Status -eq "SUCCESS") { "#2ecc71" } else { "#e74c3c" }
         "<tr><td>$($_.Timestamp)</td><td>$($_.Milestone)</td><td>$($_.Action)</td><td>$($_.Target)</td><td style='color:$statusColour'>$($_.Status)</td><td>$($_.Detail)</td></tr>"
     }) -join "`n"
 
-    # ── Severity summary ──────────────────────────────────────────────────────
+    # -- Severity summary ------------------------------------------------------
     $critCount   = ($Findings | Where-Object Severity -eq "CRITICAL").Count
     $highCount   = ($Findings | Where-Object Severity -eq "HIGH").Count
     $medCount    = ($Findings | Where-Object Severity -eq "MEDIUM").Count
@@ -95,7 +95,7 @@ function New-RunReport {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>AD Agent Run Report — $RunId</title>
+<title>AD Agent Run Report -- $RunId</title>
 <style>
   body  { font-family: Consolas, monospace; background:#1a1a2e; color:#e0e0e0; margin:0; padding:20px; }
   h1    { color:#00d4ff; border-bottom:2px solid #00d4ff; padding-bottom:10px; }
@@ -120,7 +120,7 @@ function New-RunReport {
 </head>
 <body>
 
-<h1>AD Remediation Agent — Run Report</h1>
+<h1>AD Remediation Agent -- Run Report</h1>
 <h2>Run: $RunId &nbsp;|&nbsp; Domain: $Domain &nbsp;|&nbsp; Generated: $ts</h2>
 <p>Mode: <span class="mode-badge">$Mode</span> &nbsp; Milestones: $($Milestones -join ', ')</p>
 
