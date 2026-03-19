@@ -32,18 +32,24 @@ function Invoke-M4 {
     $ms = "M4"
 
     function Add-Finding {
-        param($ObjectDN, $FindingType, $Severity, $Description, $Data = $null)
+        param(
+            $ObjectDN, $FindingType, $Severity, $Description,
+            $CISControl = "", $CISLevel = "", $NISTControl = "", $Data = $null
+        )
         $finding = [PSCustomObject]@{
             Milestone   = $ms
             FindingType = $FindingType
             ObjectDN    = $ObjectDN
             Severity    = $Severity
             Description = $Description
+            CISControl  = $CISControl
+            CISLevel    = $CISLevel
+            NISTControl = $NISTControl
             Timestamp   = (Get-Date -Format "o")
             Data        = $Data
         }
         $Global:FindingsList.Add($finding)
-        Write-AgentLog -Level FINDING -Milestone $ms -Message "[$Severity] $FindingType -- $ObjectDN" -Data $Data
+        Write-AgentLog -Level FINDING -Milestone $ms -Message "[$Severity] $FindingType -- $($ObjectDN): $Description" -Data $Data
     }
 
     function Add-Action {
@@ -77,7 +83,8 @@ function Invoke-M4 {
 
     } catch {
         Add-Finding -ObjectDN $Domain -FindingType "DelegationScanFailed" -Severity "HIGH" `
-            -Description "Failed to enumerate delegation: $($_.Exception.Message)"
+            -Description "Failed to enumerate delegation: $($_.Exception.Message)" `
+            -NISTControl "AC-6, IA-2"
         return
     }
 
@@ -97,11 +104,13 @@ function Invoke-M4 {
     foreach ($c in $flaggedComputers) {
         Add-Finding -ObjectDN $c.DistinguishedName -FindingType "UnconstrainedDelegation_Computer" -Severity "HIGH" `
             -Description "Computer account has TrustedForDelegation=true. OS: $($c.OperatingSystem)" `
+            -NISTControl "AC-6, IA-2(1)" `
             -Data @{ SPNs = $c.ServicePrincipalNames -join "|"; LastLogon = $c.LastLogonDate }
     }
     foreach ($u in $flaggedUsers) {
         Add-Finding -ObjectDN $u.DistinguishedName -FindingType "UnconstrainedDelegation_User" -Severity "CRITICAL" `
-            -Description "User account has TrustedForDelegation=true -- high impersonation risk."
+            -Description "User account has TrustedForDelegation=true -- high impersonation risk." `
+            -NISTControl "AC-6, IA-2(1)"
     }
 
     # -- Discover mode exits here ----------------------------------------------

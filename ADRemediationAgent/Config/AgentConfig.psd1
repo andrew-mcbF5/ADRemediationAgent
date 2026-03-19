@@ -3,21 +3,32 @@
 # This file is loaded automatically if present at Config\AgentConfig.psd1
 
 @{
-    # ── General ───────────────────────────────────────────────────────────────
-    AgentVersion        = "1.0"
+    # -- General ----------------------------------------------------------------
+    AgentVersion        = "2.0"
     DefaultDomain       = $env:USERDNSDOMAIN
 
-    # ── M11: Stale Account Thresholds ─────────────────────────────────────────
-    StaleUserDays       = 90       # Days without logon to flag a user as stale
-    StaleComputerDays   = 90       # Days without logon to flag a computer as stale
-    StalePrivDays       = 60       # Days without logon to flag a privileged account
+    # -- Compliance Framework ---------------------------------------------------
+    # CIS_L1_NIST800-53: CIS Benchmark L1 checks with NIST SP 800-53 control mapping
+    # CIS_L1_ONLY: CIS L1 checks only, no NIST mapping in reports
+    # NONE: No compliance framework, health checks only
+    ComplianceFramework = "CIS_L1_NIST800-53"
 
-    # ── M11: Quarantine OU ────────────────────────────────────────────────────
-    # Leave empty to auto-construct from domain DN
-    # Example: "OU=Quarantine-Disabled,DC=corp,DC=contoso,DC=com"
+    # -- DC Upgrade Gate --------------------------------------------------------
+    # When $true, agent will warn (Discover) or block (Remediate) M3-M12
+    # if any DC is not yet running TargetDCOS.
+    # Set to $false after all DCs have been upgraded.
+    DCUpgradeGateEnabled = $true
+    TargetDCOS           = "2025"   # Matches against OperatingSystem string
+
+    # -- M11: Stale Account Thresholds -----------------------------------------
+    StaleUserDays       = 90
+    StaleComputerDays   = 90
+    StalePrivDays       = 60
+
+    # -- M11: Quarantine OU ----------------------------------------------------
     QuarantineOU        = ""
 
-    # ── M11: Protected Account Patterns (never quarantine) ───────────────────
+    # -- M11: Protected Account Patterns (never quarantine) --------------------
     ProtectedPatterns   = @(
         "krbtgt",
         "Guest",
@@ -26,7 +37,7 @@
         "SUPPORT_388945a0"
     )
 
-    # ── M12: Privileged Groups to audit ───────────────────────────────────────
+    # -- M12: Privileged Groups to audit ---------------------------------------
     PrivilegedGroups    = @(
         "Domain Admins",
         "Enterprise Admins",
@@ -38,19 +49,19 @@
         "Group Policy Creator Owners"
     )
 
-    # ── Reporting ─────────────────────────────────────────────────────────────
-    # Max log files to retain in the Logs directory
+    # -- Reporting -------------------------------------------------------------
     LogRetentionCount   = 90
-
-    # Open HTML report in browser after run (requires a GUI session)
     AutoOpenReport      = $false
 
-    # ── Hybrid AAD notes ──────────────────────────────────────────────────────
-    # If running in a Hybrid Azure AD environment:
-    # - LastLogonDate from Get-ADUser reflects on-prem logons only.
-    # - Cloud-only logons via Entra ID will NOT update LastLogonDate.
-    # - For hybrid environments, consider cross-referencing with Entra ID sign-in
-    #   logs (Get-MgAuditLogSignIn) before quarantining accounts.
-    # - Set HybridAAD = $true below to enable a warning reminder at M11 startup.
-    HybridAAD           = $false
+    # -- Hybrid Azure AD -------------------------------------------------------
+    # $true: DCs are Azure VMs in hybrid AAD join environment.
+    # LastLogonDate reflects on-prem logons only -- cross-reference Entra ID
+    # sign-in logs before quarantining accounts.
+    HybridAAD           = $true
+
+    # -- IP-Bound App Warning --------------------------------------------------
+    # Set $true if legacy apps are bound to DC IP addresses.
+    # M1 will include a warning in reporting and the DC upgrade checklist
+    # will flag the IP reassignment risk.
+    IPBoundAppsPresent  = $true
 }

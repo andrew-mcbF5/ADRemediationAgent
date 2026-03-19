@@ -39,17 +39,24 @@ function Invoke-M11 {
     $ms = "M11"
 
     function Add-Finding {
-        param($ObjectDN, $FindingType, $Severity, $Description, $Data = $null)
-        $Global:FindingsList.Add([PSCustomObject]@{
+        param(
+            $ObjectDN, $FindingType, $Severity, $Description,
+            $CISControl = "", $CISLevel = "", $NISTControl = "", $Data = $null
+        )
+        $finding = [PSCustomObject]@{
             Milestone   = $ms
             FindingType = $FindingType
             ObjectDN    = $ObjectDN
             Severity    = $Severity
             Description = $Description
+            CISControl  = $CISControl
+            CISLevel    = $CISLevel
+            NISTControl = $NISTControl
             Timestamp   = (Get-Date -Format "o")
             Data        = $Data
-        })
-        Write-AgentLog -Level FINDING -Milestone $ms -Message "[$Severity] $FindingType -- $ObjectDN"
+        }
+        $Global:FindingsList.Add($finding)
+        Write-AgentLog -Level FINDING -Milestone $ms -Message "[$Severity] $FindingType -- $($ObjectDN): $Description" -Data $Data
     }
 
     function Add-Action {
@@ -80,7 +87,8 @@ function Invoke-M11 {
     } catch {
         Write-Host "  [!] Quarantine OU does not exist: $QuarantineOU" -ForegroundColor Yellow
         Add-Finding -ObjectDN $QuarantineOU -FindingType "QuarantineOUMissing" -Severity "MEDIUM" `
-            -Description "Quarantine OU does not exist. It will be created if remediation is approved."
+            -Description "Quarantine OU does not exist. It will be created if remediation is approved." `
+            -NISTControl "AC-2, CM-8"
     }
 
     # -- Enumerate stale users -------------------------------------------------
@@ -102,10 +110,12 @@ function Invoke-M11 {
 
         foreach ($u in $staleUsers) {
             Add-Finding -ObjectDN $u.DistinguishedName -FindingType "StaleUser" -Severity "MEDIUM" `
-                -Description "User inactive since $(if ($u.LastLogonDate) { $u.LastLogonDate.ToString('yyyy-MM-dd') } else { 'Never logged in' }). PwdLastSet: $(if ($u.PasswordLastSet) { $u.PasswordLastSet.ToString('yyyy-MM-dd') } else { 'Unknown' })"
+                -Description "User inactive since $(if ($u.LastLogonDate) { $u.LastLogonDate.ToString('yyyy-MM-dd') } else { 'Never logged in' }). PwdLastSet: $(if ($u.PasswordLastSet) { $u.PasswordLastSet.ToString('yyyy-MM-dd') } else { 'Unknown' })" `
+                -NISTControl "AC-2, IA-4"
         }
     } catch {
-        Add-Finding -ObjectDN $Domain -FindingType "StaleUserScanFailed" -Severity "HIGH" -Description $_.Exception.Message
+        Add-Finding -ObjectDN $Domain -FindingType "StaleUserScanFailed" -Severity "HIGH" -Description $_.Exception.Message `
+            -NISTControl "AC-2"
     }
 
     # -- Enumerate stale computers ---------------------------------------------
@@ -126,10 +136,12 @@ function Invoke-M11 {
 
         foreach ($c in $staleComputers) {
             Add-Finding -ObjectDN $c.DistinguishedName -FindingType "StaleComputer" -Severity "LOW" `
-                -Description "Computer inactive since $(if ($c.LastLogonDate) { $c.LastLogonDate.ToString('yyyy-MM-dd') } else { 'Never' }). OS: $($c.OperatingSystem)"
+                -Description "Computer inactive since $(if ($c.LastLogonDate) { $c.LastLogonDate.ToString('yyyy-MM-dd') } else { 'Never' }). OS: $($c.OperatingSystem)" `
+                -NISTControl "AC-2, CM-8"
         }
     } catch {
-        Add-Finding -ObjectDN $Domain -FindingType "StaleComputerScanFailed" -Severity "HIGH" -Description $_.Exception.Message
+        Add-Finding -ObjectDN $Domain -FindingType "StaleComputerScanFailed" -Severity "HIGH" -Description $_.Exception.Message `
+            -NISTControl "AC-2, CM-8"
     }
 
     $totalStale = $staleUsers.Count + $staleComputers.Count

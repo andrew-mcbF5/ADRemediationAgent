@@ -2,6 +2,12 @@
 .SYNOPSIS
     New-RunReport -- Generates a per-run HTML summary report.
     Called at the end of every Discover / Remediate / Baseline run.
+
+    v2.0 additions:
+      - DC OS Progression card (from DCInventory finding Data)
+      - CIS L1 Compliance card (counts CIS-tagged findings)
+      - CISControl and NISTControl columns in All Findings table
+      - NIST control cross-reference section
 #>
 
 function New-RunReport {
@@ -22,11 +28,131 @@ function New-RunReport {
     $reportFile = "$reportsDir\RunReport-$RunId.html"
     $ts         = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-    # Ensure arrays - guard every collection against $null under StrictMode
+    # Ensure arrays under StrictMode
     $Findings = @($Findings)
     $Actions  = @($Actions)
 
-    # -- Compare to baseline if available ----------------------------------------
+    # =========================================================================
+    # Helper: HTML-encode a string (avoid XSS in object DNs / descriptions)
+    # =========================================================================
+    function HtmlEncode {
+        param([string]$s)
+        if (-not $s) { return "" }
+        $s = $s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;").Replace('"',"&quot;")
+        return $s
+    }
+
+    # =========================================================================
+    # DC OS Progression Card
+    # =========================================================================
+    $dcProgressionHtml = ""
+    $dcInvFinding = @($Findings | Where-Object { $_.FindingType -eq "DCInventory" })
+
+    if ($dcInvFinding.Count -gt 0 -and $dcInvFinding[0].Data) {
+        $dcList = @($dcInvFinding[0].Data)
+
+        $dcRows = ($dcList | ForEach-Object {
+            $flagColour = ""
+            $flagText   = ""
+            if ($_.UpgradeFlag -eq "COMPLETE") {
+                $flagColour = "#2ecc71"
+                $flagText   = "COMPLETE"
+            } elseif ($_.UpgradeFlag -eq "URGENT") {
+                $flagColour = "#e74c3c"
+                $flagText   = "URGENT"
+            } else {
+                $flagColour = "#f39c12"
+                $flagText   = "PENDING"
+            }
+
+            $dcName  = HtmlEncode $_.Name
+            $dcHost  = HtmlEncode $_.HostName
+            $dcIP    = HtmlEncode $_.IPv4
+            $dcOS    = HtmlEncode $_.OS
+            $dcSite  = HtmlEncode $_.Site
+            $dcGC    = if ($_.IsGC)   { "Yes" } else { "No" }
+            $dcRODC  = if ($_.IsRODC) { "Yes" } else { "No" }
+            $dcFSMO  = HtmlEncode $_.FSMORoles
+
+            "<tr><td>$dcName</td><td>$dcIP</td><td>$dcOS</td><td>$dcSite</td><td>$dcGC</td><td>$dcRODC</td><td>$dcFSMO</td><td style='color:$flagColour;font-weight:bold'>$flagText</td></tr>"
+        }) -join "`n"
+
+        $totalDCs    = $dcList.Count
+        $completeDCs = @($dcList | Where-Object { $_.UpgradeFlag -eq "COMPLETE" }).Count
+        $pendingDCs  = @($dcList | Where-Object { $_.UpgradeFlag -eq "PENDING"  }).Count
+        $urgentDCs   = @($dcList | Where-Object { $_.UpgradeFlag -eq "URGENT"   }).Count
+
+        $dcProgressionHtml = @"
+<div class="card">
+  <h3>DC OS Progression ($totalDCs controller(s))</h3>
+  <div class="metric"><span class="val" style="color:#2ecc71">$completeDCs</span><span class="lbl">On 2025</span></div>
+  <div class="metric"><span class="val" style="color:#f39c12">$pendingDCs</span><span class="lbl">Pending</span></div>
+  <div class="metric"><span class="val" style="color:#e74c3c">$urgentDCs</span><span class="lbl">Urgent</span></div>
+  <br style="clear:both"><br>
+  <table>
+    <tr><th>DC Name</th><th>IPv4</th><th>OS</th><th>Site</th><th>GC</th><th>RODC</th><th>FSMO Roles</th><th>Upgrade Flag</th></tr>
+    $dcRows
+  </table>
+</div>
+"@
+    }
+
+    # =========================================================================
+    # CIS L1 Compliance Card
+    # =========================================================================
+    $cisHtml = ""
+    $cisTagged      = @($Findings | Where-Object { $_.CISControl -and $_.CISControl -ne "" })
+    $cisNonCompliant= @($cisTagged | Where-Object { $_.Severity -in @("CRITICAL","HIGH","MEDIUM") })
+    $cisHighCrit    = @($cisTagged | Where-Object { $_.Severity -in @("CRITICAL","HIGH") })
+
+    $cisComplianceHtml = @"
+<div class="card">
+  <h3>CIS L1 Compliance Summary</h3>
+  <div class="metric"><span class="val" style="color:#e67e22">$($cisTagged.Count)</span><span class="lbl">CIS-Tagged Findings</span></div>
+  <div class="metric"><span class="val" style="color:#e74c3c">$($cisHighCrit.Count)</span><span class="lbl">High/Critical</span></div>
+  <div class="metric"><span class="val" style="color:#f39c12">$($cisNonCompliant.Count)</span><span class="lbl">Non-Compliant Controls</span></div>
+</div>
+"@
+
+    # =========================================================================
+    # NIST Control Cross-Reference
+    # =========================================================================
+    $nistMap = @{}
+    foreach ($f in $Findings) {
+        if ($f.NISTControl -and $f.NISTControl -ne "") {
+            # A finding may list multiple controls separated by comma
+            $controls = $f.NISTControl -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+            foreach ($ctrl in $controls) {
+                if (-not $nistMap.ContainsKey($ctrl)) {
+                    $nistMap[$ctrl] = [System.Collections.Generic.List[string]]::new()
+                }
+                $nistMap[$ctrl].Add("[$($f.Severity)] $($f.FindingType) ($($f.ObjectDN))")
+            }
+        }
+    }
+
+    $nistRows = ""
+    foreach ($ctrl in ($nistMap.Keys | Sort-Object)) {
+        $findingList = ($nistMap[$ctrl] | Select-Object -Unique) -join "<br>"
+        $nistRows += "<tr><td style='font-weight:bold;color:#00d4ff'>$(HtmlEncode $ctrl)</td><td>$findingList</td></tr>`n"
+    }
+
+    $nistSectionHtml = ""
+    if ($nistRows -ne "") {
+        $nistSectionHtml = @"
+<div class="card">
+  <h3>NIST SP 800-53 Control Cross-Reference</h3>
+  <table>
+    <tr><th>Control</th><th>Related Findings</th></tr>
+    $nistRows
+  </table>
+</div>
+"@
+    }
+
+    # =========================================================================
+    # Delta vs Baseline Section
+    # =========================================================================
     $deltaSection = ""
     $baselineFile = "$OutputPath\Baselines\baseline-latest.json"
 
@@ -43,31 +169,39 @@ function New-RunReport {
         $newF  = @($Findings | Where-Object { -not $baseKeys.ContainsKey("$($_.ObjectDN)|$($_.FindingType)") })
         $persF = @($Findings | Where-Object {      $baseKeys.ContainsKey("$($_.ObjectDN)|$($_.FindingType)") })
 
-        $newRows  = ($newF  | ForEach-Object {
-            "<tr class='new'><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td>$($_.Severity)</td><td>$($_.Description)</td></tr>"
+        $newRows  = ($newF | ForEach-Object {
+            $cis  = HtmlEncode $_.CISControl
+            $nist = HtmlEncode $_.NISTControl
+            "<tr class='new'><td>$(HtmlEncode $_.Milestone)</td><td>$(HtmlEncode $_.FindingType)</td><td>$(HtmlEncode $_.ObjectDN)</td><td>$(HtmlEncode $_.Severity)</td><td>$(HtmlEncode $_.Description)</td><td>$cis</td><td>$nist</td></tr>"
         }) -join "`n"
 
         $persRows = ($persF | ForEach-Object {
-            "<tr><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td>$($_.Severity)</td><td>$($_.Description)</td></tr>"
+            $cis  = HtmlEncode $_.CISControl
+            $nist = HtmlEncode $_.NISTControl
+            "<tr><td>$(HtmlEncode $_.Milestone)</td><td>$(HtmlEncode $_.FindingType)</td><td>$(HtmlEncode $_.ObjectDN)</td><td>$(HtmlEncode $_.Severity)</td><td>$(HtmlEncode $_.Description)</td><td>$cis</td><td>$nist</td></tr>"
         }) -join "`n"
 
+        $baseRunId = if ($baseline.RunId) { $baseline.RunId } else { "unknown" }
+
         $deltaSection = @"
-<div class='card'>
-  <h3>Delta vs Baseline ($($baseline.RunId))</h3>
-  <p><span class='badge new'>NEW</span> $($newF.Count) findings not present at baseline &nbsp;|&nbsp; <span class='badge persist'>PERSISTING</span> $($persF.Count) findings unchanged since baseline</p>
+<div class="card">
+  <h3>Delta vs Baseline ($baseRunId)</h3>
+  <p><span class="badge new">NEW</span> $($newF.Count) findings not present at baseline &nbsp;|&nbsp; <span class="badge persist">PERSISTING</span> $($persF.Count) findings unchanged since baseline</p>
   <h4>New Since Baseline</h4>
-  <table><tr><th>Milestone</th><th>Type</th><th>Object DN</th><th>Severity</th><th>Description</th></tr>
+  <table><tr><th>Milestone</th><th>Type</th><th>Object DN</th><th>Severity</th><th>Description</th><th>CIS Control</th><th>NIST Control</th></tr>
   $newRows
   </table>
   <h4>Persisting From Baseline</h4>
-  <table><tr><th>Milestone</th><th>Type</th><th>Object DN</th><th>Severity</th><th>Description</th></tr>
+  <table><tr><th>Milestone</th><th>Type</th><th>Object DN</th><th>Severity</th><th>Description</th><th>CIS Control</th><th>NIST Control</th></tr>
   $persRows
   </table>
 </div>
 "@
     }
 
-    # -- Build findings table ----------------------------------------------------
+    # =========================================================================
+    # All Findings Table (with CIS and NIST columns)
+    # =========================================================================
     $findingRows = ($Findings | ForEach-Object {
         $sevColour = switch ($_.Severity) {
             "CRITICAL" { "#e74c3c" }
@@ -77,16 +211,22 @@ function New-RunReport {
             "INFO"     { "#3498db" }
             default    { "#bdc3c7" }
         }
-        "<tr><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td style='color:$sevColour;font-weight:bold'>$($_.Severity)</td><td>$($_.Description)</td></tr>"
+        $cis  = HtmlEncode $_.CISControl
+        $nist = HtmlEncode $_.NISTControl
+        "<tr><td>$(HtmlEncode $_.Milestone)</td><td>$(HtmlEncode $_.FindingType)</td><td>$(HtmlEncode $_.ObjectDN)</td><td style='color:$sevColour;font-weight:bold'>$(HtmlEncode $_.Severity)</td><td>$(HtmlEncode $_.Description)</td><td>$cis</td><td>$nist</td></tr>"
     }) -join "`n"
 
-    # -- Build actions table -----------------------------------------------------
+    # =========================================================================
+    # Actions Table
+    # =========================================================================
     $actionRows = ($Actions | ForEach-Object {
         $statusColour = if ($_.Status -eq "SUCCESS") { "#2ecc71" } else { "#e74c3c" }
-        "<tr><td>$($_.Timestamp)</td><td>$($_.Milestone)</td><td>$($_.Action)</td><td>$($_.Target)</td><td style='color:$statusColour'>$($_.Status)</td><td>$($_.Detail)</td></tr>"
+        "<tr><td>$(HtmlEncode $_.Timestamp)</td><td>$(HtmlEncode $_.Milestone)</td><td>$(HtmlEncode $_.Action)</td><td>$(HtmlEncode $_.Target)</td><td style='color:$statusColour'>$(HtmlEncode $_.Status)</td><td>$(HtmlEncode $_.Detail)</td></tr>"
     }) -join "`n"
 
-    # -- Severity and action counts (all wrapped in @() to prevent null .Count) --
+    # =========================================================================
+    # Summary metric counts
+    # =========================================================================
     $critCount   = @($Findings | Where-Object { $_.Severity -eq "CRITICAL" }).Count
     $highCount   = @($Findings | Where-Object { $_.Severity -eq "HIGH"     }).Count
     $medCount    = @($Findings | Where-Object { $_.Severity -eq "MEDIUM"   }).Count
@@ -101,6 +241,9 @@ function New-RunReport {
         default     { "#3498db" }
     }
 
+    # =========================================================================
+    # Render HTML
+    # =========================================================================
     $html = @"
 <!DOCTYPE html>
 <html lang="en">
@@ -145,15 +288,21 @@ function New-RunReport {
   <div class="metric"><span class="val" style="color:#e74c3c">$actFailed</span><span class="lbl">Failed Actions</span></div>
 </div>
 
+$dcProgressionHtml
+
+$cisComplianceHtml
+
 $deltaSection
 
 <div class="card">
   <h3>All Findings ($($Findings.Count))</h3>
   <table>
-    <tr><th>Milestone</th><th>Finding Type</th><th>Object DN</th><th>Severity</th><th>Description</th></tr>
+    <tr><th>Milestone</th><th>Finding Type</th><th>Object DN</th><th>Severity</th><th>Description</th><th>CIS Control</th><th>NIST Control</th></tr>
     $findingRows
   </table>
 </div>
+
+$nistSectionHtml
 
 <div class="card">
   <h3>Actions Taken ($($Actions.Count))</h3>
@@ -163,7 +312,7 @@ $deltaSection
   </table>
 </div>
 
-<footer>AD Remediation Agent v1.0 -- Run log: $($Global:AgentLogPath)</footer>
+<footer>AD Remediation Agent v2.0 -- Run log: $($Global:AgentLogPath)</footer>
 </body>
 </html>
 "@
