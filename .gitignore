@@ -1,0 +1,9 @@
+# Claude Code local settings (personal overrides, not for team)
+.claude/settings.local.json
+
+# AD Agent runtime output (logs, reports, baselines generated at runtime)
+ADRemediationAgent/ADAgent-Output/
+ADRemediationAgent/Logs/
+ADRemediationAgent/Reports/
+ADRemediationAgent/Baselines/
+*.log
