@@ -22,23 +22,34 @@ function New-RunReport {
     $reportFile = "$reportsDir\RunReport-$RunId.html"
     $ts         = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-    # -- Compare to baseline if available -------------------------------------
+    # Ensure arrays - guard every collection against $null under StrictMode
+    $Findings = @($Findings)
+    $Actions  = @($Actions)
+
+    # -- Compare to baseline if available ----------------------------------------
     $deltaSection = ""
     $baselineFile = "$OutputPath\Baselines\baseline-latest.json"
 
     if ((Test-Path $baselineFile) -and $Findings.Count -gt 0) {
-        $baseline    = Get-Content $baselineFile -Raw | ConvertFrom-Json
-        $baseKeys    = @{}
-        $baseline.Findings | ForEach-Object {
-            $k = "$($_.ObjectDN)|$($_.FindingType)"
-            $baseKeys[$k] = $_
+        $baseline = Get-Content $baselineFile -Raw | ConvertFrom-Json
+        $baseKeys = @{}
+        if ($baseline.Findings) {
+            $baseline.Findings | ForEach-Object {
+                $k = "$($_.ObjectDN)|$($_.FindingType)"
+                $baseKeys[$k] = $_
+            }
         }
 
-        $newF  = $Findings | Where-Object { -not $baseKeys.ContainsKey("$($_.ObjectDN)|$($_.FindingType)") }
-        $persF = $Findings | Where-Object { $baseKeys.ContainsKey("$($_.ObjectDN)|$($_.FindingType)") }
+        $newF  = @($Findings | Where-Object { -not $baseKeys.ContainsKey("$($_.ObjectDN)|$($_.FindingType)") })
+        $persF = @($Findings | Where-Object {      $baseKeys.ContainsKey("$($_.ObjectDN)|$($_.FindingType)") })
 
-        $newRows  = ($newF  | ForEach-Object { "<tr class='new'><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td>$($_.Severity)</td><td>$($_.Description)</td></tr>" }) -join "`n"
-        $persRows = ($persF | ForEach-Object { "<tr><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td>$($_.Severity)</td><td>$($_.Description)</td></tr>" }) -join "`n"
+        $newRows  = ($newF  | ForEach-Object {
+            "<tr class='new'><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td>$($_.Severity)</td><td>$($_.Description)</td></tr>"
+        }) -join "`n"
+
+        $persRows = ($persF | ForEach-Object {
+            "<tr><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td>$($_.Severity)</td><td>$($_.Description)</td></tr>"
+        }) -join "`n"
 
         $deltaSection = @"
 <div class='card'>
@@ -56,7 +67,7 @@ function New-RunReport {
 "@
     }
 
-    # -- Build findings table --------------------------------------------------
+    # -- Build findings table ----------------------------------------------------
     $findingRows = ($Findings | ForEach-Object {
         $sevColour = switch ($_.Severity) {
             "CRITICAL" { "#e74c3c" }
@@ -69,19 +80,19 @@ function New-RunReport {
         "<tr><td>$($_.Milestone)</td><td>$($_.FindingType)</td><td>$($_.ObjectDN)</td><td style='color:$sevColour;font-weight:bold'>$($_.Severity)</td><td>$($_.Description)</td></tr>"
     }) -join "`n"
 
-    # -- Build actions table ---------------------------------------------------
+    # -- Build actions table -----------------------------------------------------
     $actionRows = ($Actions | ForEach-Object {
         $statusColour = if ($_.Status -eq "SUCCESS") { "#2ecc71" } else { "#e74c3c" }
         "<tr><td>$($_.Timestamp)</td><td>$($_.Milestone)</td><td>$($_.Action)</td><td>$($_.Target)</td><td style='color:$statusColour'>$($_.Status)</td><td>$($_.Detail)</td></tr>"
     }) -join "`n"
 
-    # -- Severity summary ------------------------------------------------------
-    $critCount   = ($Findings | Where-Object Severity -eq "CRITICAL").Count
-    $highCount   = ($Findings | Where-Object Severity -eq "HIGH").Count
-    $medCount    = ($Findings | Where-Object Severity -eq "MEDIUM").Count
-    $lowCount    = ($Findings | Where-Object Severity -eq "LOW").Count
-    $actApproved = ($Actions  | Where-Object Status   -eq "SUCCESS").Count
-    $actFailed   = ($Actions  | Where-Object Status   -eq "FAILED").Count
+    # -- Severity and action counts (all wrapped in @() to prevent null .Count) --
+    $critCount   = @($Findings | Where-Object { $_.Severity -eq "CRITICAL" }).Count
+    $highCount   = @($Findings | Where-Object { $_.Severity -eq "HIGH"     }).Count
+    $medCount    = @($Findings | Where-Object { $_.Severity -eq "MEDIUM"   }).Count
+    $lowCount    = @($Findings | Where-Object { $_.Severity -eq "LOW"      }).Count
+    $actApproved = @($Actions  | Where-Object { $_.Status   -eq "SUCCESS"  }).Count
+    $actFailed   = @($Actions  | Where-Object { $_.Status   -eq "FAILED"   }).Count
 
     $modeColour = switch ($Mode) {
         "Discover"  { "#f39c12" }
@@ -152,7 +163,7 @@ $deltaSection
   </table>
 </div>
 
-<footer>AD Remediation Agent v1.0 &mdash; Run log: $($Global:AgentLogPath)</footer>
+<footer>AD Remediation Agent v1.0 -- Run log: $($Global:AgentLogPath)</footer>
 </body>
 </html>
 "@

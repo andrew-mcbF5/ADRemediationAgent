@@ -108,17 +108,17 @@ function Invoke-DriftReport {
     $allRunLogs   = Get-ChildItem "$logsDir\*.log" -ErrorAction SilentlyContinue |
                     Sort-Object LastWriteTime -Descending | Select-Object -First 10
 
-    # Parse action log entries across runs
-    $allActions = foreach ($log in $allRunLogs) {
+    # Parse action log entries across runs -- @() guarantees array even when logs are empty
+    $allActions = @(foreach ($log in $allRunLogs) {
         Import-Csv $log.FullName -ErrorAction SilentlyContinue |
             Where-Object { $_.Level -in @("APPROVED","ACTION","DENIED","FINDING","ERROR") }
-    }
+    })
 
-    # Count metrics
-    $totalApproved  = ($allActions | Where-Object Level -eq "APPROVED").Count
-    $totalDenied    = ($allActions | Where-Object Level -eq "DENIED").Count
-    $totalFindings  = ($allActions | Where-Object Level -eq "FINDING").Count
-    $totalErrors    = ($allActions | Where-Object Level -eq "ERROR").Count
+    # Count metrics -- @() wrap prevents .Count on $null under StrictMode
+    $totalApproved  = @($allActions | Where-Object { $_.Level -eq "APPROVED" }).Count
+    $totalDenied    = @($allActions | Where-Object { $_.Level -eq "DENIED"   }).Count
+    $totalFindings  = @($allActions | Where-Object { $_.Level -eq "FINDING"  }).Count
+    $totalErrors    = @($allActions | Where-Object { $_.Level -eq "ERROR"    }).Count
 
     # Build drift report as structured text (HTML)
     $reportFile = "$reportsDir\DriftReport-$ts.html"
