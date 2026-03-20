@@ -113,10 +113,33 @@ Important for upgrade sequencing -- FSMO holders should be upgraded last
 
 ---
 
-### M3 -- OU Structure Cleanup (stub)
-Deliberately kept as a stub. OU restructuring has a high blast radius
-(changes to OU paths break existing GPO links and membership-by-location
-assumptions). Scoping requires client OU design review before scripting.
+### M3 -- OU Structure Cleanup
+
+**All checks Discover-only**
+OU restructuring has a high blast radius -- OU path changes break existing
+GPO links and membership-by-location assumptions. M3 produces a full audit
+report for the AD team to act on via the normal change management process.
+No automated remediation is offered.
+
+**Checks implemented (7):**
+1. OU Inventory -- CSV export with depth, GPO link flag, block-inheritance
+   flag, user/computer/child-OU counts, protection status.
+2. Default Container Usage -- objects in CN=Computers or CN=Users instead
+   of purpose-built OUs (receive only domain-root GPOs).
+3. Empty OUs -- zero users, computers, and child OUs.
+4. Block Inheritance OUs -- gPOptions bit 0 set; security hardening GPOs
+   from parent/root will not apply.
+5. Policy Gap OUs -- populated OUs with block inheritance AND no direct
+   GPO link. Escalated to HIGH (objects may receive no policy at all).
+6. Deep OU Nesting -- depth > 5 levels.
+7. Non-Standard OU Delegation -- non-inherited Allow ACEs with GenericAll,
+   WriteDacl, WriteOwner, or GenericWrite to non-standard principals.
+   CSV export. Checked via Get-Acl on the AD: PSDrive.
+
+**Efficiency note**
+Object-count maps are built via three bulk queries (Get-ADUser, Get-ADComputer,
+OU depth from allOUs loop) rather than per-OU queries. DN parent extraction
+uses a simple IndexOf(",") substring -- no regex overhead per object.
 
 ---
 
@@ -270,6 +293,62 @@ on workstations, Add-WindowsFeature GPMC on servers) or must be run from a DC.
 
 ---
 
+### M10 -- Delegated Permissions Review
+
+**ACL Enumeration via AD: PSDrive**
+All ACL checks use `Get-Acl "AD:\<DN>"` via the AD: PSDrive (provided by the
+ActiveDirectory module). No ADSI or direct LDAP binding required. If the AD:
+drive is unavailable, M10 returns immediately with a CRITICAL finding.
+
+**DCSync: Flag All Non-Standard Principals, Not Just Unknown Ones**
+Rather than attempting to identify known-legitimate service accounts (e.g.
+Azure AD Connect, ADFS), M10 flags ALL principals that are not Domain Admins,
+Enterprise Admins, Administrators, SYSTEM, or ENTERPRISE DOMAIN CONTROLLERS.
+The operator decides which are legitimate (e.g. an AAD sync account). This
+avoids false negatives from name-pattern matching on service account SAM names.
+
+DCSync rights are exported to a CSV inventory regardless of whether violations
+are found -- the operator gets a full list of who can replicate hashes.
+
+**DS-Replication-Get-Changes-All is the Critical Right**
+DS-Replication-Get-Changes alone does not grant access to password hashes.
+DS-Replication-Get-Changes-All does. Both are flagged, but Get-Changes-All
+findings are elevated to CRITICAL. The Filtered-Set right is also checked.
+
+**AdminSDHolder: SDProp Persistence Risk**
+A non-standard ACE on AdminSDHolder is effectively permanent -- SDProp re-stamps
+the ACL onto all protected accounts every 60 minutes. Even if an operator manually
+removes the backdoor ACE from a specific user account, SDProp will restore it.
+The root fix is always at CN=AdminSDHolder, not on individual accounts.
+AdminSDHolder findings are Discover-only: removal requires ADSI Edit or dsacls
+under a separate change request given the scope of the change.
+
+**DC OU Delegation: Only Remediable Check in M10**
+The DC OU (OU=Domain Controllers) is the only ACL target where M10 offers
+automated per-ACE removal. This scope is chosen because:
+- The DC OU is a single, well-known, high-value target
+- Non-standard ACEs here are almost always misconfiguration, not legitimate delegation
+- Blast radius is limited to the one OU object (no child objects affected)
+All other ACL checks (domain root, AdminSDHolder, DNS, DCSync) are Discover-only
+because those changes require deliberate review and change management.
+
+**Rollback for ACE Removal**
+Rollback steps are printed to the operator before approval. The exact PowerShell
+`New-Object DirectoryServices.ActiveDirectoryAccessRule` / `AddAccessRule` /
+`Set-Acl` sequence is provided so the operator can restore the ACE if needed.
+The agent log records the removed ACE in full detail.
+
+**DC Delegation: Complements M4**
+M4 remediates unconstrained delegation on non-DC accounts. M10 check 6 focuses
+exclusively on DC computer objects, covering:
+- Unconstrained delegation on DCs outside OU=Domain Controllers (unexpected placement)
+- Constrained delegation (msDS-AllowedToDelegateTo) on DCs (non-default, should be reviewed)
+- Protocol-transition delegation (TrustedToAuthForDelegation) on DCs (CRITICAL -- very unusual)
+Normal DCs have TrustedForDelegation=True inside OU=Domain Controllers; this is
+expected Kerberos infrastructure behaviour and is not flagged.
+
+---
+
 ## Baseline and Drift Tracking
 
 **JSON Snapshots**
@@ -313,9 +392,6 @@ Only source code and config are tracked. The `.claude/settings.local.json`
 
 | Item | Status | Notes |
 |------|--------|-------|
-| M3 OU Structure Cleanup | Stub | Requires client OU design review |
-| M9 Security Group Cleanup | Stub | TBD |
-| M10 Delegated Permissions | Stub | TBD |
 | M11 Fine-Grained Password Policy | Stub | TBD |
 | M12 Privileged Access Workstation Audit | Stub | TBD |
 | GitHub Actions CI lint | Deferred | PSScriptAnalyzer + PS5.1 parse on PR |

@@ -70,17 +70,17 @@ ADRemediationAgent/
 |   +-- Compare-Baseline.ps1              Baseline comparison wrapper
 |   +-- New-RunReport.ps1                 Per-run HTML report generator
 +-- Modules/
-|   +-- Invoke-M1-DCHealthBaseline.ps1    M1:  DC Health, inventory, AS-REP, krbtgt, upgrade readiness
-|   +-- Invoke-M3-OUStructure.ps1         M3:  OU Structure Cleanup          [stub - planned]
+|   +-- Invoke-M1-DCHealthBaseline.ps1       M1:  DC Health, inventory, AS-REP, krbtgt, upgrade readiness
+|   +-- Invoke-M3-OUStructure.ps1            M3:  OU Structure Cleanup (Discover-only)
 |   +-- Invoke-M4-UnconstrainedDelegation.ps1  M4:  Unconstrained Delegation
-|   +-- Invoke-M5-SPNAudit.ps1            M5:  SPN Duplicate Detection        [stub - planned]
-|   +-- Invoke-M6-KerberosConfig.ps1      M6:  Kerberos Configuration Review  [stub - planned]
-|   +-- Invoke-M7-DCHardening.ps1         M7:  DC Hardening and CIS L1 Baseline [stub - planned]
-|   +-- Invoke-M8-GPOCleanup.ps1          M8:  GPO Cleanup                    [stub - planned]
-|   +-- Invoke-M9-SecurityGroups.ps1      M9:  Security Group Cleanup         [stub - planned]
-|   +-- Invoke-M10-DelegatedPermissions.ps1 M10: Delegated Permissions Review [stub - planned]
-|   +-- Invoke-M11-StaleAccounts.ps1      M11: Stale Account Quarantine
-|   +-- Invoke-M12-PrivilegedGroups.ps1   M12: Privileged Group Review
+|   +-- Invoke-M5-SPNAudit.ps1              M5:  SPN Audit -- duplicates, Kerberoastable accounts, orphans
+|   +-- Invoke-M6-KerberosConfig.ps1        M6:  Kerberos Configuration Review
+|   +-- Invoke-M7-DCHardening.ps1           M7:  DC Hardening and CIS L1 Baseline
+|   +-- Invoke-M8-GPOCleanup.ps1            M8:  GPO Cleanup
+|   +-- Invoke-M9-SecurityGroups.ps1        M9:  Security Group Cleanup
+|   +-- Invoke-M10-DelegatedPermissions.ps1 M10: Delegated Permissions Review
+|   +-- Invoke-M11-StaleAccounts.ps1        M11: Stale Account Quarantine
+|   +-- Invoke-M12-PrivilegedGroups.ps1     M12: Privileged Group Review
 +-- Logs/       Per-run CSV logs           (auto-created at runtime)
 +-- Reports/    HTML reports and snapshots  (auto-created at runtime)
 +-- Baselines/  JSON baseline snapshots     (auto-created at runtime)
@@ -126,13 +126,13 @@ The HTML report includes:
 ### Targeting specific milestones
 
 ```powershell
-# Run default implemented milestones (M1, M4, M11, M12)
+# Run default milestones (M1, M4, M11, M12 -- fast, high-impact)
 .\Start-ADRemediationAgent.ps1 -Mode Discover
 
 # Run specific milestones
 .\Start-ADRemediationAgent.ps1 -Mode Remediate -Milestones M4,M12
 
-# Run all available milestones
+# Run all milestones (M3 and M7 scan all OUs/DCs via WinRM -- allow extra time)
 .\Start-ADRemediationAgent.ps1 -Mode Discover -Milestones M1,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12
 
 # Target a specific domain (defaults to current machine's domain)
@@ -268,14 +268,14 @@ M2 is a manual process -- see [DC Upgrade Workflow](#dc-upgrade-workflow). All o
 |---|---|---|---|---|---|
 | **M1** | DC Health & Baseline | **Implemented** | Replication, FSMO roles, DNS, SYSVOL replication mode (DFSR/FRS), AD Recycle Bin, time sync, OS versions, IPv4 addresses, functional levels, krbtgt password age, AS-REP roastable accounts, Domain Admins not in Protected Users | No -- flags only; acknowledgment required for CRITICAL/HIGH | INFO to HIGH |
 | **M2** | DC Upgrade to 2025 | **Manual** | In-place upgrade trial, swing migration, IP reassignment, SYSVOL/DNS validation -- see DC Upgrade Workflow | Manual process -- no automation script | HIGH / CRITICAL |
-| **M3** | OU Structure Cleanup | Planned | Empty OUs, default containers, naming violations, GPO link inventory, nested complexity, block inheritance | Yes -- with approval | LOW / MEDIUM |
+| **M3** | OU Structure Cleanup | **Implemented** | Empty OUs, default container usage (CN=Computers/CN=Users), block inheritance, policy gap OUs (block inheritance + no GPO link), deep nesting (>5 levels), non-standard OU delegation ACEs | No -- Discover-only; OU path changes require AD team review | LOW / MEDIUM |
 | **M4** | Unconstrained Delegation | **Implemented** | Computers and users with `TrustedForDelegation = $true` (excluding DCs) | Yes -- per-object approval; sets `TrustedForDelegation = $false` | HIGH / CRITICAL |
-| **M5** | SPN Audit | Planned | Duplicate SPNs (setspn -X -F), Kerberoastable accounts, SPNs on disabled accounts, orphaned SPNs | No -- report only; manual remediation required | MEDIUM / HIGH |
-| **M6** | Kerberos Configuration | Planned | RC4-only accounts (no AES), msDS-SupportedEncryptionTypes, Kerberos ticket policy, WHfB Kerberos hybrid trust prerequisites, authentication policies | Partial -- with approval | MEDIUM / HIGH |
-| **M7** | DC Hardening & CIS L1 | Planned | LDAP signing (CIS 2.3.11.8), LDAP channel binding (CIS 18.3.3), SMB signing (CIS 2.3.6.x), NLA for RDP (CIS 18.9.65.3), Print Spooler on DCs (CIS 18.3.6), LSASS PPL (CIS 18.9.46.2), WDigest (CIS 18.3.7), Credential Guard (CIS 18.9.46.4), Advanced Audit policy (CIS 17.x) | Yes -- GPO / registry changes with approval | HIGH / CRITICAL |
-| **M8** | GPO Cleanup | Planned | Unlinked GPOs, all-settings-disabled GPOs, default domain policy modifications, SYSVOL-orphaned GPOs, WMI filter review | Yes -- backup then remove/disable with approval | LOW / MEDIUM |
-| **M9** | Security Group Cleanup | Planned | Empty groups, groups with no ACL usage, circular nesting, AdminSDHolder membership, stale members | Yes -- with approval | LOW / MEDIUM |
-| **M10** | Delegated Permissions | Planned | Non-standard ACEs on OUs and domain root (GenericAll, WriteDacl, WriteOwner), DCSync rights, AdminSDHolder ACEs, DNS write access | Yes -- per-ACE approval | HIGH / CRITICAL |
+| **M5** | SPN Audit | **Implemented** | Duplicate SPNs, Kerberoastable accounts (RC4-only with SPN), SPNs on disabled accounts, Tier 0 accounts with SPNs, orphaned SPNs | Partial -- set AES encryption type with approval; duplicate SPN removal is Discover-only | MEDIUM / HIGH |
+| **M6** | Kerberos Configuration | **Implemented** | RC4-only user accounts (no AES), Kerberos ticket policy (GptTmpl.inf), Protected Users with service account SPNs, WHfB Kerberos hybrid trust prerequisites, authentication policy and silo coverage | Partial -- set AES encryption type with approval | MEDIUM / HIGH |
+| **M7** | DC Hardening & CIS L1 | **Implemented** | LDAP signing (CIS 2.3.11.8), LDAP channel binding (CIS 18.3.3), SMB signing (CIS 2.3.6.x), NLA for RDP (CIS 18.9.65.3), Print Spooler on DCs (CIS 18.3.6), LSASS PPL (CIS 18.9.46.2), WDigest (CIS 18.3.7), Credential Guard (CIS 18.9.46.4), Advanced Audit policy (CIS 17.x) -- all via WinRM | Yes -- registry changes with approval; reboot-required DCs tracked and reported | HIGH / CRITICAL |
+| **M8** | GPO Cleanup | **Implemented** | Unlinked GPOs, all-settings-disabled GPOs, empty GPOs (confirmed by XML), default domain policy modifications, SYSVOL orphans (both directions), disabled GPO links, non-standard GPO delegation | Yes -- backup-first; disable unlinked GPOs, delete disabled/empty GPOs with approval | LOW / MEDIUM |
+| **M9** | Security Group Cleanup | **Implemented** | Empty security groups, disabled accounts in security groups, privileged group membership audit, circular nesting detection, large universal groups, AdminSDHolder remnants (AdminCount=1, not in protected groups), mail-enabled security groups | Yes -- remove disabled accounts from groups; clear AdminCount on remnants; with approval | LOW / MEDIUM |
+| **M10** | Delegated Permissions | **Implemented** | DCSync rights on domain root, domain root high-risk ACEs (GenericAll/WriteDacl/WriteOwner), AdminSDHolder backdoor ACEs, DC OU non-standard delegation, DnsAdmins membership + MicrosoftDNS write ACEs, DC computer object delegation | Yes -- DC OU ACE removal per-ACE with approval; all other checks Discover-only | HIGH / CRITICAL |
 | **M11** | Stale Account Quarantine | **Implemented** | Users and computers inactive > 90 days (configurable), enabled accounts, excludes protected patterns | Yes -- bulk approval; disable + move to Quarantine OU + stamp description | LOW / MEDIUM |
 | **M12** | Privileged Group Review | **Implemented** | Domain Admins, Enterprise Admins, Schema Admins, Backup Operators, and more -- new members, stale accounts, service accounts in Tier 0, computer accounts, nested groups | Yes -- per-member approval; removes from group only (account not disabled or deleted) | HIGH / CRITICAL |
 
@@ -534,4 +534,4 @@ function Add-Finding {
 
 ---
 
-*AD Remediation Agent v2.0*
+*AD Remediation Agent v2.0 -- All 11 scripted milestones implemented (M2 is manual). Updated 2026-03-20.*
