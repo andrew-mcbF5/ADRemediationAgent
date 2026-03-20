@@ -1,9 +1,9 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Generates the AM Internal Brief and Client Summary Word documents.
+    Generates the AM Internal Brief and Client Proposal Word documents.
     Output: Docs\ADRemediationAgent-AM-Brief.docx
-            Docs\ADRemediationAgent-Client-Summary.docx
+            Docs\ADRemediationAgent-Client-Proposal.docx
 
 .DESCRIPTION
     Uses Open XML (ZIP + XML) to create DOCX files directly -- no Word process
@@ -19,7 +19,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $repoRoot    = $PSScriptRoot
 $docsDir     = Join-Path $repoRoot "Docs"
 $amBriefPath = Join-Path $docsDir "ADRemediationAgent-AM-Brief.docx"
-$clientPath  = Join-Path $docsDir "ADRemediationAgent-Client-Summary.docx"
+$clientPath  = Join-Path $docsDir "ADRemediationAgent-Client-Proposal.docx"
 
 if (-not (Test-Path $docsDir)) {
     New-Item -Path $docsDir -ItemType Directory | Out-Null
@@ -416,102 +416,113 @@ Save-Docx $amBriefPath (Build-DocumentXml $amBody)
 Write-Host "  [OK] AM Brief saved: $amBriefPath" -ForegroundColor Green
 
 # -----------------------------------------------------------------------
-# DOCUMENT 2: CLIENT-READY SUMMARY
+# DOCUMENT 2: CLIENT PROPOSAL
 # -----------------------------------------------------------------------
-Write-Host "  Building Client Summary..." -ForegroundColor Gray
+Write-Host "  Building Client Proposal..." -ForegroundColor Gray
 
 $clientBody = @(
     # Cover
-    xP "Active Directory Remediation and Hardening" "Title"
-    xP "Delivery Summary" "Subtitle"
+    xP "Active Directory Security Assessment and Remediation" "Title"
+    xP "Proposal for MetLife" "Subtitle"
     xP ""
     xMeta "Prepared for:  " "MetLife"
     xMeta "Prepared by:  "  "Fusion5"
     xMeta "Date:  "          "March 2026"
+    xMeta "Classification:  " "COMMERCIAL IN CONFIDENCE"
     xP ""
     xBrk
 
     # Section 1
-    xP "Executive Summary" "Heading1"
-    xP "Fusion5 has delivered the AD Remediation Agent -- a purpose-built Active Directory security assessment and remediation tool developed specifically for MetLife's environment. The solution provides a structured, repeatable, and fully auditable approach to identifying and resolving Active Directory security risks across 12 defined areas, from Domain Controller health and baseline configuration through to privileged access governance and delegated permissions."
-    xP "The tool is designed to operate safely in a production environment. Every remediation action requires explicit operator approval before it is executed, and a full audit trail is maintained for all findings, approvals, and actions taken. No Active Directory objects are ever deleted -- stale accounts are quarantined through a disable-and-move process, and all changes can be rolled back using documented steps provided at the time of approval."
-    xP "The AD Remediation Agent maps every finding to the CIS Benchmark Level 1 controls for Windows Server 2022/2025 and to NIST SP 800-53 control identifiers. This means the output is directly suitable for inclusion in audit evidence packages and risk register updates, in addition to its operational use as a remediation guide."
+    xP "Overview" "Heading1"
+    xP "Fusion5 is pleased to propose a structured Active Directory (AD) security assessment and remediation engagement for MetLife. This proposal outlines our recommended approach, the scope of work, and the tooling we will deliver to help MetLife improve its AD security posture in advance of -- and following -- the planned Domain Controller upgrade from Windows Server 2019 to Windows Server 2025."
+    xP "Active Directory is the foundation of identity and access control across MetLife's environment. Weaknesses in AD configuration -- misconfigured delegation, stale privileged accounts, insecure Kerberos settings, or non-standard ACL assignments -- represent high-value attack paths that are frequently exploited in modern ransomware and identity-based attacks. Addressing these risks in a controlled, auditable way is a critical step before any major infrastructure change such as a DC OS upgrade."
+    xP "This engagement will deliver a purpose-built automation framework -- the AD Remediation Agent -- that assesses MetLife's AD environment against the CIS Benchmark Level 1 standard and NIST SP 800-53, identifies security risks across 12 defined areas, and supports remediation with human-in-the-loop approval controls that ensure no change is ever made without explicit operator sign-off."
 
     # Section 2
-    xP "Engagement Objectives" "Heading1"
-    xP "Assess MetLife's Active Directory security posture against the CIS Benchmark Level 1 standard for Windows Server 2022/2025" "ListBullet"
-    xP "Identify and remediate security risks across 12 Active Directory domains, from DC health to privileged access" "ListBullet"
-    xP "Support the planned Domain Controller upgrade from Windows Server 2019 to Windows Server 2025, including upgrade readiness assessment and post-upgrade hardening" "ListBullet"
-    xP "Establish a repeatable, audit-ready AD security review process that MetLife can run on an ongoing basis" "ListBullet"
-    xP "Generate compliance evidence aligned to NIST SP 800-53 for governance and audit reporting" "ListBullet"
-    xP "Account for MetLife's Hybrid Azure AD Join environment and Windows Hello for Business Kerberos hybrid trust configuration" "ListBullet"
+    xP "Why Now" "Heading1"
+    xP "The planned upgrade of MetLife's Domain Controllers to Windows Server 2025 creates a natural and time-sensitive window to address AD security hygiene. There are three reasons why this work is best performed as part of the upgrade programme rather than after it:"
+    xP "Upgrading a Domain Controller running misconfigured or vulnerable AD services carries forward those weaknesses onto the new platform. Remediating before the upgrade reduces the risk that security gaps persist into the new environment." "ListBullet"
+    xP "Windows Server 2025 introduces stronger default security baselines -- including LDAP channel binding and SMB signing enforcement. Identifying and resolving existing non-compliant configurations in advance avoids operational disruption when these defaults take effect." "ListBullet"
+    xP "A post-upgrade baseline snapshot, taken once the environment is in a known-good state, provides MetLife with a documented reference point for ongoing compliance and audit purposes." "ListBullet"
+    xP "MetLife's environment includes a Hybrid Azure AD Join configuration and Windows Hello for Business Kerberos hybrid trust objects. Our proposed solution has been designed to account for these components, including guidance on cross-referencing Entra ID sign-in activity before any stale account remediation is performed."
 
     # Section 3
-    xP "Solution Overview" "Heading1"
-    xP "The AD Remediation Agent is a PowerShell-based tool that runs from any domain-joined Windows machine or Privileged Access Workstation. It requires no additional software installation beyond standard Windows Remote Server Administration Tools (RSAT) and is compatible with PowerShell 5.1, which ships in-box on both Windows Server 2019 and 2025."
-    xP "The agent operates in four modes, providing flexibility to run as an audit-only tool, a one-time remediation assistant, or a recurring monitoring solution:"
+    xP "Proposed Solution" "Heading1"
+    xP "We propose to deliver the AD Remediation Agent -- a PowerShell 5.1 automation framework purpose-built for this engagement. The agent will run directly from any domain-joined Windows machine or Privileged Access Workstation and will require no additional software, licensing, or infrastructure beyond the standard ActiveDirectory and GPMC Remote Server Administration Tools (RSAT), which are already available in MetLife's environment."
+    xP "The agent will operate in four modes, giving MetLife full control over how and when the tooling is used:"
     xP ""
     xTable @("Mode","Purpose","Changes Made") @(
-        [string[]]@("Discover",  "Runs all checks and produces a findings report with CIS and NIST annotations. Recommended for initial assessment and ongoing monitoring.", "None"),
-        [string[]]@("Baseline",  "Snapshots the current state of Active Directory as the approved reference point. Future runs compare against this baseline.",               "None"),
-        [string[]]@("Remediate", "Runs all checks, then presents each remediable finding to the operator with full impact detail and requires explicit approval before acting.", "Yes -- with approval only"),
-        [string[]]@("Report",    "Generates a drift report comparing the current baseline against historical run data. Requires no Active Directory access.",                    "None")
+        [string[]]@("Discover",  "Runs all assessment checks and produces a findings report with full CIS and NIST control annotations. This is the recommended starting point -- safe to run in production at any time.", "None"),
+        [string[]]@("Baseline",  "Snapshots the current state of Active Directory as an approved reference point. All subsequent runs will compare against this snapshot, identifying new, persisting, or resolved findings.", "None"),
+        [string[]]@("Remediate", "Runs all checks, then walks the operator through each remediable finding with full impact detail, rollback steps, and an explicit approve-or-skip prompt before any action is taken.", "Yes -- with explicit approval only"),
+        [string[]]@("Report",    "Generates a drift report comparing current findings against the stored baseline. No Active Directory connection is required -- suitable for management reporting.", "None")
     )
-    xP "Each run produces an HTML report containing the full findings list with CIS and NIST control references, a delta comparison against the stored baseline (showing which issues are new, persisting, or resolved), and a complete action log of all changes made during the session."
+    xP "Every run produces a structured HTML report that maps all findings to CIS Benchmark Level 1 controls and NIST SP 800-53 control identifiers. This output is suitable for direct use in audit evidence packages, risk register updates, and executive reporting."
 
     # Section 4
-    xP "Milestone Coverage" "Heading1"
-    xP "The tool covers 12 Active Directory security and hygiene milestones. Milestone 2 (DC Upgrade to Windows Server 2025) is a manual, change-controlled process supported by the readiness reporting from Milestone 1. All remaining milestones are fully automated for both discovery and, where appropriate, remediation."
+    xP "Scope of Work" "Heading1"
+    xP "The proposed engagement covers 12 Active Directory security and hygiene milestones. Milestone 2 (DC Upgrade to Windows Server 2025) is a manual, change-controlled process that Fusion5 will support with readiness reporting and technical guidance from Milestone 1. All other milestones will be delivered as automated assessment and remediation capability within the agent."
     xP ""
-    xTable @("Milestone","Area","What It Assesses","Automated Remediation") $milestonesClient
+    xTable @("Milestone","Area","What We Will Assess","Proposed Remediation") $milestonesClient
 
     # Section 5
-    xP "Compliance Framework" "Heading1"
+    xP "Compliance Alignment" "Heading1"
     xP "CIS Benchmark Level 1 -- Windows Server 2022 / 2025" "Heading2"
-    xP "Every technical check in the tool is sourced from the CIS (Center for Internet Security) Benchmark Level 1 profile for Windows Server 2022 and 2025. CIS Level 1 represents the baseline security configuration recommended for all servers -- the controls are specific, directly auditable, and implementable without significant impact to business operations. Each finding in the output includes the CIS control reference number and level."
+    xP "All technical checks in the proposed solution will be sourced from the CIS (Center for Internet Security) Benchmark Level 1 profile for Windows Server 2022 and 2025. CIS Level 1 represents the universally recommended security baseline -- controls are precise, directly auditable, and designed to be implementable without material impact to business operations. Each finding produced by the tool will include the applicable CIS control reference and benchmark level."
     xP "NIST SP 800-53" "Heading2"
-    xP "In addition to CIS controls, every finding is tagged with the corresponding NIST Special Publication 800-53 control identifier. NIST SP 800-53 is the US federal standard for information security controls and is widely used as the basis for enterprise risk registers and third-party audit frameworks. The HTML report includes a NIST control cross-reference table that groups findings by control family (AC, CM, IA, SC, AU, SI), making it straightforward to map remediation activity to governance obligations."
+    xP "Every finding will also be tagged with the corresponding NIST Special Publication 800-53 control identifier, enabling MetLife to map remediation activity directly to its governance and risk management framework. The HTML report will include a NIST control cross-reference summary grouped by control family (AC -- Access Control, CM -- Configuration Management, IA -- Identification and Authentication, SC -- System and Communications Protection, AU -- Audit, SI -- System Integrity)."
 
     # Section 6
-    xP "Key Security Principles" "Heading1"
+    xP "How We Will Work" "Heading1"
     xP "Human Approval Before Every Change" "Heading2"
-    xP "The tool will never modify Active Directory without explicit operator approval. For each remediable finding, the operator is shown the exact action that will be taken, the full impact (what will break if the change is wrong), and step-by-step rollback instructions before being asked to approve or skip. For HIGH and CRITICAL risk changes -- such as removing delegation rights or modifying DC configurations -- the operator must type the target object name exactly before the approval prompt is displayed."
-    xP "No Objects Are Ever Deleted" "Heading2"
-    xP "The agent follows a safe-by-default principle. Stale user and computer accounts are quarantined: disabled, moved to a dedicated Quarantine OU, and stamped with a description recording the date and reason. They are never deleted. Similarly, Group Policy Objects are disabled before deletion is offered, giving administrators a window to recover them if needed. Deletion of any object requires a second, distinct approval step."
-    xP "Complete Audit Trail" "Heading2"
-    xP "Every agent run produces a structured CSV log and an HTML report. Each entry records the timestamp, milestone, finding type, target object, severity, CIS and NIST control references, the operator's decision (approved, skipped, or quit), and the outcome of any change. This log is suitable for submission as audit evidence and can be retained for as long as required using the configurable log retention setting."
-    xP "Baseline and Drift Tracking" "Heading2"
-    xP "After establishing a known-good state -- typically after the DC upgrade is complete and an initial remediation wave has been run -- the agent can snapshot Active Directory into a baseline. All subsequent runs compare the current findings against this baseline, clearly identifying issues that are new (potential regression or new threat), persisting (known and accepted), or resolved (successfully remediated). This makes the tool suitable for use as an ongoing monitoring solution."
+    xP "No change will ever be made to Active Directory without explicit operator approval. For each remediable finding, the operator will be shown the exact action proposed, the full impact if the change is applied incorrectly, and step-by-step rollback instructions -- before any approval prompt is displayed. For HIGH and CRITICAL risk changes, the operator will be required to type the target object name exactly, providing a typed confirmation that the action has been reviewed and is intentional."
+    xP "No Objects Will Ever Be Deleted" "Heading2"
+    xP "The agent follows a safe-by-default design. Stale user and computer accounts will be quarantined -- disabled and moved to a dedicated Quarantine OU with a description recording the date and reason -- rather than deleted. Group Policy Objects will be disabled and backed up before any deletion is offered, providing a recovery window. Deletion of any object will require a distinct, separate approval step."
+    xP "Full Audit Trail" "Heading2"
+    xP "Every run of the agent will produce a structured CSV activity log and an HTML report. Each entry will record the timestamp, milestone, finding type, target object distinguished name, severity rating, CIS and NIST control references, the operator's decision, and the outcome of any change applied. These logs will be retained in a configurable output directory and are suitable for direct submission as audit evidence."
+    xP "Baseline and Ongoing Drift Tracking" "Heading2"
+    xP "Once MetLife's DC upgrade is complete and an initial remediation wave has been run, the agent will snapshot the environment into a signed baseline. All subsequent Discover or Remediate runs will compare against this baseline, clearly categorising each finding as New (potential regression or new risk), Persisting (known and accepted), or Resolved (successfully remediated). This positions the agent as an ongoing monitoring tool, not just a one-time assessment."
 
     # Section 7
-    xP "Getting Started" "Heading1"
-    xP "The agent is ready to run from the provided package. Launch PowerShell as a Domain Admin (or delegated read account for Discover mode) from a domain-joined machine and navigate to the ADRemediationAgent folder."
-    xP "Initial Discovery (no changes)" "Heading2"
-    xCode ".\Start-ADRemediationAgent.ps1 -Mode Discover"
-    xP "Runs all milestone checks and produces an HTML report in .\ADAgent-Output\Reports\. Review this report before taking any remediation action."
-    xP "Run Specific Milestones" "Heading2"
-    xCode ".\Start-ADRemediationAgent.ps1 -Mode Remediate -Milestones M4,M12"
-    xP "Targets specific milestones in Remediate mode. Findings are presented one by one with full impact detail; the operator approves or skips each item."
-    xP "Set a Baseline" "Heading2"
-    xCode ".\Start-ADRemediationAgent.ps1 -Mode Baseline"
-    xP "Snapshots current AD findings as the approved reference. Run this after the DC upgrade is complete and the environment is in a known-good state."
+    xP "Proposed Engagement Phases" "Heading1"
+    xP "We propose to structure the engagement in four sequential phases, aligned with MetLife's DC upgrade timeline:"
+    xP "Phase 1 -- Initial Assessment (Discover)" "Heading2"
+    xP "Run the agent in Discover mode across all 12 milestones to establish a current-state findings report. Fusion5 will review the output with MetLife's AD team, prioritise findings by risk, and agree a remediation roadmap. This phase requires no changes to Active Directory and can begin immediately upon engagement confirmation."
+    xP "Phase 2 -- Pre-Upgrade Remediation" "Heading2"
+    xP "Work through the agreed high-priority milestones in Remediate mode before the DC upgrade begins. Recommended starting points are M4 (Unconstrained Delegation), M10 (Delegated Permissions), M7 (DC Hardening), M12 (Privileged Group Review), and M6 (Kerberos Configuration). All changes will be reviewed and approved by MetLife's AD team at the CLI before execution."
+    xP "Phase 3 -- DC Upgrade to Windows Server 2025" "Heading2"
+    xP "Execute the Domain Controller upgrade using the swing migration approach to preserve DC IP addresses and minimise disruption to IP-bound applications. Fusion5 will provide technical guidance throughout, using the M1 readiness report to sequence the upgrade and validate each DC post-migration. This milestone is manual and change-controlled."
+    xP "Phase 4 -- Post-Upgrade Baseline and Ongoing Monitoring" "Heading2"
+    xP "Once all DCs are confirmed on Windows Server 2025, run Mode Baseline to snapshot the post-upgrade, post-remediation state as the approved reference. Fusion5 recommends scheduling weekly Discover runs via Windows Task Scheduler to provide ongoing visibility of AD drift, with quarterly reviews of the drift report as part of MetLife's security operations cadence."
 
     # Section 8
-    xP "Recommended Next Steps" "Heading1"
-    xP "Run Mode Discover -- establish a current-state findings report across all milestones. Review the HTML output with your AD team and Fusion5 consultant to understand the risk landscape." "ListNumber"
-    xP "Review M1 (DC Health) findings -- confirm SYSVOL is using DFSR replication (required for Server 2025 upgrade), review the DC inventory, and identify any upgrade blockers." "ListNumber"
-    xP "Plan and execute the DC upgrade to Windows Server 2025 (Milestone 2) -- use the swing migration approach documented in the tool's README to preserve DC IP addresses." "ListNumber"
-    xP "Set a post-upgrade baseline -- once all DCs are on Server 2025, run Mode Baseline to record the approved reference state." "ListNumber"
-    xP "Remediate high-risk milestones first -- begin with M4 (Unconstrained Delegation), M10 (Delegated Permissions), M7 (DC Hardening), and M12 (Privileged Group Review)." "ListNumber"
-    xP "Complete remaining milestones -- address M6 (Kerberos), M5 (SPN Audit), M11 (Stale Accounts), M8 (GPO Cleanup), M9 (Security Groups), and M3 (OU Structure)." "ListNumber"
-    xP "Establish ongoing monitoring -- schedule weekly Mode Discover runs and review the drift report to detect new risks and track remediation progress over time." "ListNumber"
+    xP "Why Fusion5" "Heading1"
+    xP "Purpose-Built Tooling" "Heading2"
+    xP "Rather than relying on generic security scanning tools, Fusion5 has invested in developing an engagement-specific automation framework tailored to MetLife's environment -- accounting for the hybrid Azure AD join configuration, the Windows Hello for Business Kerberos hybrid trust topology, and the IP-bound application dependencies on DC addresses. This approach ensures that findings and remediation steps are directly applicable, not generic."
+    xP "Safe, Controlled Remediation" "Heading2"
+    xP "Our human-in-the-loop design means MetLife retains full control at every step. Nothing changes without approval, every action is logged, and every change comes with rollback instructions. This makes the engagement suitable for a production environment where stability is paramount."
+    xP "Compliance-Ready Output" "Heading2"
+    xP "Every finding produced by the agent maps to a CIS Benchmark Level 1 control and a NIST SP 800-53 identifier. The HTML reports are structured for direct submission as audit evidence, reducing the overhead of translating technical findings into governance documentation."
+    xP "Knowledge Transfer" "Heading2"
+    xP "The AD Remediation Agent and all associated tooling will be handed over to MetLife at the conclusion of the engagement. MetLife's AD team will be able to run Discover and Report modes independently on an ongoing basis, with Fusion5 available for support, guided remediation sessions, or future module development as requirements evolve."
+
+    # Section 9
+    xP "Proposed Next Steps" "Heading1"
+    xP "We welcome the opportunity to discuss this proposal with MetLife's team and tailor the scope and phasing to fit the DC upgrade timeline. The following steps are proposed to move forward:"
+    xP "Review and confirm the proposed scope of work with MetLife's AD and security teams" "ListNumber"
+    xP "Agree engagement timelines aligned to the planned DC upgrade programme" "ListNumber"
+    xP "Confirm access requirements -- a domain-joined machine and a read-privileged account are sufficient to begin Phase 1 in Discover mode" "ListNumber"
+    xP "Schedule a technical walkthrough session with MetLife's AD team to introduce the tooling and review the Phase 1 approach" "ListNumber"
+    xP "Execute a Statement of Work and commence Phase 1" "ListNumber"
+    xP ""
+    xP "Please contact your Fusion5 account manager to discuss this proposal or to arrange a technical demonstration of the AD Remediation Agent."
 )
 
 Save-Docx $clientPath (Build-DocumentXml $clientBody)
-Write-Host "  [OK] Client Summary saved: $clientPath" -ForegroundColor Green
+Write-Host "  [OK] Client Proposal saved: $clientPath" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "  Done. Two documents written to Docs\" -ForegroundColor Cyan
+Write-Host "  Done. Documents written to Docs\" -ForegroundColor Cyan
 Write-Host "    $(Split-Path $amBriefPath -Leaf)" -ForegroundColor White
 Write-Host "    $(Split-Path $clientPath  -Leaf)" -ForegroundColor White
 Write-Host ""
