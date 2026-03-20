@@ -433,9 +433,9 @@ $clientBody = @(
 
     # Section 1
     xP "Background and Understanding" "Heading1"
-    xP "Thank you for reaching out to Fusion5. We understand that a recent issue impacting mapped drives has highlighted the need to prioritise Active Directory remediation and cleanup activities within your on-premise AD environment. We appreciate the trust MetLife has placed in Fusion5 to respond to this need and are pleased to present this proposal."
-    xP "Based on the scope you have outlined, we understand MetLife is looking for a partner to deliver a focused, practical AD remediation engagement covering configuration hygiene, security settings hardening, legacy configuration cleanup, and the upgrade of Domain Controllers to Windows Server 2025. This proposal sets out how Fusion5 proposes to address each of those requirements, the tooling we will bring to the engagement, and how we will ensure that all work is performed in a safe and controlled manner in your production environment."
-    xP "Our proposed approach addresses all eleven areas identified in your scope request. The table in the Scope Coverage section below maps each of your requirements directly to the solution components we will deliver."
+    xP "Thank you for the time you and your team invested in our initial discussion. Following that conversation, Fusion5 has prepared this proposal based on the context you shared and the scope areas we worked through together. We understand that a recent issue impacting mapped drives has brought into focus the need to prioritise Active Directory remediation and cleanup activities within your on-premise AD environment, and that MetLife is looking to move forward with this work in a structured and timely way."
+    xP "This proposal reflects the requirements and priorities discussed during our call. Where our initial conversation provided additional detail or nuance beyond the original scope brief -- for example, around the hybrid Azure AD Join configuration, the Windows Hello for Business Kerberos hybrid trust topology, and application dependencies on DC IP addresses -- we have incorporated that context into the proposed approach and phasing."
+    xP "Our proposed solution addresses all eleven areas identified in your scope. The Scope Coverage section below maps each of your requirements directly to the components we will deliver, so you can confirm at a glance that nothing has been missed."
 
     # Section 2
     xP "Proposed Solution" "Heading1"
@@ -493,14 +493,14 @@ $clientBody = @(
 
     # Section 7
     xP "Proposed Next Steps" "Heading1"
-    xP "We would welcome a short discovery call as you suggested to confirm scope and timelines before preparing a full Statement of Work. In the meantime, the following steps are proposed:"
-    xP "Schedule a brief scoping call between Fusion5 and MetLife's AD team to walk through requirements and confirm any environment-specific considerations" "ListNumber"
-    xP "Fusion5 to prepare and issue a Statement of Work based on confirmed scope" "ListNumber"
-    xP "MetLife to confirm access arrangements -- a domain-joined machine and a read-privileged account are sufficient to begin Phase 1 in Discover mode with no changes to AD" "ListNumber"
-    xP "Agree a start date and milestone sequencing that fits MetLife's DC upgrade timeline" "ListNumber"
+    xP "Following our initial discussion, we are ready to move forward as soon as scope and timelines are confirmed. The following steps are proposed:"
+    xP "MetLife to review this proposal and confirm the scope, phasing, and any adjustments arising from our initial discussion" "ListNumber"
+    xP "Fusion5 to prepare and issue a Statement of Work based on the confirmed scope" "ListNumber"
+    xP "MetLife to confirm access arrangements -- a domain-joined machine and a read-privileged account are sufficient to begin Phase 1 in Discover mode with no changes to Active Directory" "ListNumber"
+    xP "Agree a start date and milestone sequencing aligned to MetLife's DC upgrade timeline" "ListNumber"
     xP "Commence Phase 1 -- Discovery and Assessment" "ListNumber"
     xP ""
-    xP "We look forward to discussing this further. Please do not hesitate to reach out to arrange the scoping call or if you have any questions about this proposal."
+    xP "We look forward to your feedback on this proposal. Please do not hesitate to reach out if you have any questions or would like to discuss any aspect of the proposed approach."
 )
 
 Save-Docx $clientPath (Build-DocumentXml $clientBody)
