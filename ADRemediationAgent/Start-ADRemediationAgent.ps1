@@ -92,7 +92,7 @@ foreach ($sub in @("Logs","Reports","Baselines","Config")) {
 $configPath = "$ScriptRoot\Config\AgentConfig.psd1"
 $config     = $null
 if (Test-Path $configPath) {
-    $config = Import-PowerShellDataFile $configPath
+    $config = & ([scriptblock]::Create((Get-Content $configPath -Raw)))
 }
 
 # Initialise run globals

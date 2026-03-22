@@ -112,7 +112,7 @@ function Invoke-M6 {
     $config          = $null
     $privilegedGroups = @("Domain Admins","Enterprise Admins","Schema Admins")
     if (Test-Path $configPath) {
-        $config = Import-PowerShellDataFile $configPath
+        $config = & ([scriptblock]::Create((Get-Content $configPath -Raw)))
         if ($config.PrivilegedGroups) {
             $privilegedGroups = @($config.PrivilegedGroups)
         }

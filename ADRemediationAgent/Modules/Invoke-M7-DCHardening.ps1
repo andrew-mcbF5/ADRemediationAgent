@@ -82,7 +82,7 @@ function Invoke-M7 {
     $configPath = Join-Path $PSScriptRoot "..\Config\AgentConfig.psd1"
     $config     = $null
     if (Test-Path $configPath) {
-        $config = Import-PowerShellDataFile $configPath
+        $config = & ([scriptblock]::Create((Get-Content $configPath -Raw)))
     }
 
     Write-AgentLog -Level INFO -Milestone $ms -Message "Starting milestone M7 - DC Hardening and CIS L1 Baseline"

@@ -133,7 +133,7 @@ function Invoke-M9 {
     )
 
     if (Test-Path $configPath) {
-        $agentConfig = Import-PowerShellDataFile $configPath
+        $agentConfig = & ([scriptblock]::Create((Get-Content $configPath -Raw)))
         if ($null -ne $agentConfig -and $agentConfig.ContainsKey("StaleUserDays")) {
             $staleUserDays = [int]$agentConfig.StaleUserDays
         }

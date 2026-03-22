@@ -60,7 +60,7 @@ function Invoke-M1 {
     $configPath = Join-Path $PSScriptRoot "..\Config\AgentConfig.psd1"
     $config     = $null
     if (Test-Path $configPath) {
-        $config = Import-PowerShellDataFile $configPath
+        $config = & ([scriptblock]::Create((Get-Content $configPath -Raw)))
     }
     $ipBoundWarning = $false
     if ($config -and $config.IPBoundAppsPresent) { $ipBoundWarning = $config.IPBoundAppsPresent }
