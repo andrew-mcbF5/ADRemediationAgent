@@ -58,7 +58,7 @@ param(
     [string]$Mode,
 
     [ValidateSet("M1","M3","M4","M5","M6","M7","M8","M9","M10","M11","M12")]
-    [string[]]$Milestones = @("M1","M4","M11","M12"),
+    [string[]]$Milestones = @("M1","M3","M4","M5","M6","M7","M8","M9","M10","M11","M12"),
 
     [string]$OutputPath = "",
 
@@ -109,7 +109,7 @@ $Global:ActionLog     = [System.Collections.Generic.List[PSObject]]::new()
 Clear-Host
 Write-Host ""
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
-Write-Host "  |        AD REMEDIATION AGENT  v2.0                        |" -ForegroundColor Cyan
+Write-Host "  |        AD REMEDIATION AGENT  v2.2                        |" -ForegroundColor Cyan
 Write-Host "  |        $RunId                        |" -ForegroundColor Cyan
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
 Write-Host ""
