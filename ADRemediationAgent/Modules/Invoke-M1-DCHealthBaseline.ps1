@@ -110,13 +110,23 @@ function Invoke-M1 {
         $domainObj2 = Get-ADDomain -Identity $Domain
         $forestObj2 = Get-ADForest
 
-        # Build FSMO map to annotate DCs
-        $fsmoMap = @{
-            $domainObj2.PDCEmulator.ToLower()          = "PDCEmulator"
-            $domainObj2.RIDMaster.ToLower()            = "RIDMaster"
-            $domainObj2.InfrastructureMaster.ToLower() = "InfrastructureMaster"
-            $forestObj2.SchemaMaster.ToLower()         = "SchemaMaster"
-            $forestObj2.DomainNamingMaster.ToLower()   = "DomainNamingMaster"
+        # Build FSMO map to annotate DCs.
+        # Built iteratively rather than as a literal to handle single-DC domains
+        # where all five roles share the same hostname -- a literal @{} throws
+        # "Duplicate keys are not allowed" when the same key appears more than once.
+        $fsmoMap = @{}
+        @(
+            @{ H = $domainObj2.PDCEmulator.ToLower();          R = "PDCEmulator"         }
+            @{ H = $domainObj2.RIDMaster.ToLower();            R = "RIDMaster"           }
+            @{ H = $domainObj2.InfrastructureMaster.ToLower(); R = "InfrastructureMaster"}
+            @{ H = $forestObj2.SchemaMaster.ToLower();         R = "SchemaMaster"        }
+            @{ H = $forestObj2.DomainNamingMaster.ToLower();   R = "DomainNamingMaster"  }
+        ) | ForEach-Object {
+            if ($fsmoMap.ContainsKey($_.H)) {
+                $fsmoMap[$_.H] = $fsmoMap[$_.H] + ", " + $_.R
+            } else {
+                $fsmoMap[$_.H] = $_.R
+            }
         }
 
         Write-Host "    Found $($dcs.Count) DC(s):" -ForegroundColor Gray
