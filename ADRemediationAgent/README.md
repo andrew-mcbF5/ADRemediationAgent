@@ -108,7 +108,7 @@ Every finding object carries three compliance fields:
 | `NISTControl` | `AC-17, SC-8` | NIST SP 800-53 control ID(s) |
 
 The HTML report includes:
-- A **CIS L1 Compliance card** showing the count of non-compliant CIS controls found
+- A **CIS L1 Compliance card** showing a per-control PASS/FAIL breakdown with a progress bar (PASS = all findings for that control are INFO/LOW; FAIL = any MEDIUM/HIGH/CRITICAL finding)
 - A **NIST control cross-reference** section grouping findings by control family
 - `CISControl` and `NISTControl` columns in the findings and delta tables
 
@@ -126,14 +126,12 @@ The HTML report includes:
 ### Targeting specific milestones
 
 ```powershell
-# Run default milestones (M1, M4, M11, M12 -- fast, high-impact)
+# Run all milestones -- default, no -Milestones argument needed
+# (M3 and M7 scan all OUs/DCs via WinRM -- allow extra time)
 .\Start-ADRemediationAgent.ps1 -Mode Discover
 
-# Run specific milestones
+# Run specific milestones only
 .\Start-ADRemediationAgent.ps1 -Mode Remediate -Milestones M4,M12
-
-# Run all milestones (M3 and M7 scan all OUs/DCs via WinRM -- allow extra time)
-.\Start-ADRemediationAgent.ps1 -Mode Discover -Milestones M1,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12
 
 # Target a specific domain (defaults to current machine's domain)
 .\Start-ADRemediationAgent.ps1 -Mode Discover -Domain "corp.contoso.com"
@@ -397,7 +395,7 @@ Get-MgAuditLogSignIn -Filter "userPrincipalName eq 'jsmith@corp.com'" -Top 5
 
 **Windows Hello for Business (WHfB) -- Kerberos hybrid trust:**
 
-If WHfB Kerberos hybrid trust is deployed, M6 (when implemented) will check:
+If WHfB Kerberos hybrid trust is deployed, M6 will check:
 - Presence of the Azure AD Kerberos server object in AD
 - `msDS-KeyCredentialLink` attribute population on relevant accounts
 - That the cloud trust TGT issuance path is intact
@@ -428,7 +426,7 @@ Edit `Config\AgentConfig.psd1` to customise behaviour for your environment:
 
 ```powershell
 @{
-    AgentVersion        = "2.0"
+    AgentVersion        = "2.2"
 
     # -- Compliance Framework --------------------------------------------------
     # CIS_L1_NIST800-53 : CIS L1 checks with NIST SP 800-53 control IDs in reports
@@ -534,4 +532,4 @@ function Add-Finding {
 
 ---
 
-*AD Remediation Agent v2.0 -- All 11 scripted milestones implemented (M2 is manual). Updated 2026-03-20.*
+*AD Remediation Agent v2.2 -- All 11 scripted milestones implemented (M2 is manual). Updated 2026-03-23.*
