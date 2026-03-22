@@ -115,7 +115,7 @@ function Invoke-M12 {
                 continue
             }
 
-            $members = Get-ADGroupMember -Identity $groupName -Recursive -Server $Domain -ErrorAction Stop
+            $members = @(Get-ADGroupMember -Identity $groupName -Recursive -Server $Domain -ErrorAction Stop)
 
             Write-Host "    Members: $($members.Count)" -ForegroundColor Gray
 
