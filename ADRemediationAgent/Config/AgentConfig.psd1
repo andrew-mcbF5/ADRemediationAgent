@@ -4,7 +4,7 @@
 
 @{
     # -- General ----------------------------------------------------------------
-    AgentVersion        = "2.1"
+    AgentVersion        = "2.2"
     DefaultDomain       = $env:USERDNSDOMAIN
 
     # -- Compliance Framework ---------------------------------------------------

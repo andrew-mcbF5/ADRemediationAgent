@@ -150,14 +150,14 @@ function Invoke-M12 {
                 # Register as baseline finding (so it's captured in snapshots)
                 Add-Finding -ObjectDN $memberKey -FindingType "PrivGroupMembership" -Severity "INFO" `
                     -Description "$($m.SamAccountName) is member of $groupName" `
-                    -NISTControl "AC-2, AC-6"
+                    -CISControl "5" -CISLevel "L1" -NISTControl "AC-2, AC-6"
 
                 # -- Flag: NEW member not in baseline -------------------------
                 if ($baselineMembers.Count -gt 0 -and -not $baselineMembers.ContainsKey($memberKey)) {
                     $newMembers.Add($memberObj)
                     Add-Finding -ObjectDN $m.distinguishedName -FindingType "NewPrivilegedMember" -Severity "CRITICAL" `
                         -Description "NEW member in $groupName since baseline: $($m.SamAccountName). Not previously authorised." `
-                        -NISTControl "AC-2, AC-6, AU-9"
+                        -CISControl "6" -CISLevel "L1" -NISTControl "AC-2, AC-6, AU-9"
                 }
 
                 # -- Flag: Computer account in priv group ----------------------
@@ -165,7 +165,7 @@ function Invoke-M12 {
                     $computerPriv.Add($memberObj)
                     Add-Finding -ObjectDN $m.distinguishedName -FindingType "ComputerInPrivGroup" -Severity "CRITICAL" `
                         -Description "Computer account $($m.SamAccountName) is member of $groupName -- almost certainly unintended." `
-                        -NISTControl "AC-2, AC-6"
+                        -CISControl "6" -CISLevel "L1" -NISTControl "AC-2, AC-6"
                 }
 
                 # -- Flag: Group nested in priv group -------------------------
@@ -173,7 +173,7 @@ function Invoke-M12 {
                     $nestedGroups.Add($memberObj)
                     Add-Finding -ObjectDN $m.distinguishedName -FindingType "NestedGroupInPrivGroup" -Severity "MEDIUM" `
                         -Description "Group '$($m.Name)' is nested inside $groupName -- indirect membership may be wider than expected." `
-                        -NISTControl "AC-2, AC-6"
+                        -CISControl "5" -CISLevel "L1" -NISTControl "AC-2, AC-6"
                 }
 
                 # -- Flag: Stale privileged user (no logon in 60 days) ---------
@@ -182,7 +182,7 @@ function Invoke-M12 {
                         $stalePriv.Add($memberObj)
                         Add-Finding -ObjectDN $m.distinguishedName -FindingType "StalePrivilegedAccount" -Severity "HIGH" `
                             -Description "$($m.SamAccountName) in $groupName has not logged on since $($memberDetail.LastLogonDate.ToString('yyyy-MM-dd')) (>60 days)." `
-                            -NISTControl "AC-2, IA-4"
+                            -CISControl "5" -CISLevel "L1" -NISTControl "AC-2, IA-4"
                     }
                 }
 
@@ -192,7 +192,7 @@ function Invoke-M12 {
                     $svcInPriv.Add($memberObj)
                     Add-Finding -ObjectDN $m.distinguishedName -FindingType "ServiceAccountInTier0" -Severity "HIGH" `
                         -Description "Service account pattern detected in $($groupName): $($m.SamAccountName) -- service accounts should not be Tier 0 members." `
-                        -NISTControl "AC-6, IA-5"
+                        -CISControl "5" -CISLevel "L1" -NISTControl "AC-6, IA-5"
                 }
             }
 

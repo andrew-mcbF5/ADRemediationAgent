@@ -88,7 +88,7 @@ function Invoke-M11 {
         Write-Host "  [!] Quarantine OU does not exist: $QuarantineOU" -ForegroundColor Yellow
         Add-Finding -ObjectDN $QuarantineOU -FindingType "QuarantineOUMissing" -Severity "MEDIUM" `
             -Description "Quarantine OU does not exist. It will be created if remediation is approved." `
-            -NISTControl "AC-2, CM-8"
+            -CISControl "5" -CISLevel "L1" -NISTControl "AC-2, CM-8"
     }
 
     # -- Enumerate stale users -------------------------------------------------
@@ -111,7 +111,7 @@ function Invoke-M11 {
         foreach ($u in $staleUsers) {
             Add-Finding -ObjectDN $u.DistinguishedName -FindingType "StaleUser" -Severity "MEDIUM" `
                 -Description "User inactive since $(if ($u.LastLogonDate) { $u.LastLogonDate.ToString('yyyy-MM-dd') } else { 'Never logged in' }). PwdLastSet: $(if ($u.PasswordLastSet) { $u.PasswordLastSet.ToString('yyyy-MM-dd') } else { 'Unknown' })" `
-                -NISTControl "AC-2, IA-4"
+                -CISControl "5" -CISLevel "L1" -NISTControl "AC-2, IA-4"
         }
     } catch {
         Add-Finding -ObjectDN $Domain -FindingType "StaleUserScanFailed" -Severity "HIGH" -Description $_.Exception.Message `
@@ -137,7 +137,7 @@ function Invoke-M11 {
         foreach ($c in $staleComputers) {
             Add-Finding -ObjectDN $c.DistinguishedName -FindingType "StaleComputer" -Severity "LOW" `
                 -Description "Computer inactive since $(if ($c.LastLogonDate) { $c.LastLogonDate.ToString('yyyy-MM-dd') } else { 'Never' }). OS: $($c.OperatingSystem)" `
-                -NISTControl "AC-2, CM-8"
+                -CISControl "5" -CISLevel "L1" -NISTControl "AC-2, CM-8"
         }
     } catch {
         Add-Finding -ObjectDN $Domain -FindingType "StaleComputerScanFailed" -Severity "HIGH" -Description $_.Exception.Message `

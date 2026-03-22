@@ -87,7 +87,7 @@ function Invoke-M1 {
         if ($domFL -in $legacyLevels) {
             Add-Finding -ObjectDN $Domain -FindingType "LegacyFunctionalLevel" -Severity "MEDIUM" `
                 -Description "Domain functional level is $domFL -- raise after all DCs are on Server 2025." `
-                -NISTControl "CM-6"
+                -CISControl "4" -CISLevel "L1" -NISTControl "CM-6"
         }
 
         Add-Finding -ObjectDN $Domain -FindingType "FunctionalLevel" -Severity "INFO" `
@@ -179,7 +179,7 @@ function Invoke-M1 {
                 $sev = if ($isLegacy) { "HIGH" } else { "MEDIUM" }
                 Add-Finding -ObjectDN $dc.HostName -FindingType "LegacyDCOS" -Severity $sev `
                     -Description "DC is running $osVer -- target is Windows Server 2025 (upgrade flag: $upgradeFlag)." `
-                    -NISTControl "CM-6, SI-2"
+                    -CISControl "4" -CISLevel "L1" -NISTControl "CM-6, SI-2"
             }
 
             # DNS check
@@ -189,7 +189,7 @@ function Invoke-M1 {
             } catch {
                 Add-Finding -ObjectDN $dc.HostName -FindingType "DNSResolutionFailed" -Severity "HIGH" `
                     -Description "Cannot resolve DC hostname in DNS: $($_.Exception.Message)" `
-                    -NISTControl "SC-22"
+                    -CISControl "4" -CISLevel "L1" -NISTControl "SC-22"
             }
         }
 
@@ -207,7 +207,7 @@ function Invoke-M1 {
             Write-Host ""
             Add-Finding -ObjectDN $Domain -FindingType "IPBoundAppsWarning" -Severity "MEDIUM" `
                 -Description "Config indicates legacy applications are bound to DC IP addresses. Coordinate IP reassignment during DC upgrade. DNS gap risk during swing migration -- run repadmin /syncall and verify DNS records before cutting over IPs." `
-                -NISTControl "CM-8, SC-22"
+                -CISControl "4" -CISLevel "L1" -NISTControl "CM-8, SC-22"
         }
 
     } catch {
@@ -252,7 +252,7 @@ function Invoke-M1 {
                 Write-Host "    [!] $line" -ForegroundColor Yellow
                 Add-Finding -ObjectDN "replication" -FindingType "ReplicationError" -Severity "HIGH" `
                     -Description $line.ToString().Trim() `
-                    -NISTControl "CP-9, SI-7"
+                    -CISControl "4" -CISLevel "L1" -NISTControl "CP-9, SI-7"
             }
         }
 
@@ -290,7 +290,7 @@ function Invoke-M1 {
             Write-Host "    [WARN] SYSVOL may be using legacy FRS replication" -ForegroundColor Yellow
             Add-Finding -ObjectDN "SYSVOL" -FindingType "SYSVOLLegacyFRS" -Severity "HIGH" `
                 -Description "SYSVOL DFSR object not found -- SYSVOL may be using legacy FRS replication. FRS must be migrated to DFSR before upgrading DCs to Windows Server 2025. Run: dfsrmig /getglobalstate to confirm." `
-                -NISTControl "SI-2, CM-6"
+                -CISControl "4" -CISLevel "L1" -NISTControl "SI-2, CM-6"
         }
     } catch {
         Write-AgentLog -Level WARN -Milestone $ms -Message "SYSVOL mode check failed: $($_.Exception.Message)"
@@ -306,7 +306,7 @@ function Invoke-M1 {
         } else {
             foreach ($issue in $sysvolIssues) {
                 Add-Finding -ObjectDN "SYSVOL" -FindingType "SYSVOLReplicationIssue" -Severity "HIGH" `
-                    -Description $issue.ToString().Trim() -NISTControl "CP-9"
+                    -Description $issue.ToString().Trim() -CISControl "4" -CISLevel "L1" -NISTControl "CP-9"
             }
         }
     } catch {
@@ -326,7 +326,7 @@ function Invoke-M1 {
             Write-Host "    [!] AD Recycle Bin is NOT enabled" -ForegroundColor Yellow
             Add-Finding -ObjectDN $Domain -FindingType "RecycleBinDisabled" -Severity "MEDIUM" `
                 -Description "AD Recycle Bin is not enabled. Enable it to allow object recovery without a full restore." `
-                -NISTControl "CP-9"
+                -CISControl "4" -CISLevel "L1" -NISTControl "CP-9"
         }
     } catch {
         Write-AgentLog -Level WARN -Milestone $ms -Message "Could not check Recycle Bin: $($_.Exception.Message)"
@@ -343,7 +343,7 @@ function Invoke-M1 {
         if ($w32Status -match "Error|Unsync") {
             Add-Finding -ObjectDN $pdcName -FindingType "TimeSyncIssue" -Severity "HIGH" `
                 -Description "Time sync issue on PDC Emulator $($pdcName): Kerberos tickets will fail if skew exceeds 5 minutes." `
-                -NISTControl "AU-8"
+                -CISControl "4" -CISLevel "L1" -NISTControl "AU-8"
         } else {
             Write-Host "    [OK] Time sync OK on $pdcName" -ForegroundColor Green
             Write-AgentLog -Level INFO -Milestone $ms -Message "Time sync OK on PDC $pdcName"
@@ -370,12 +370,12 @@ function Invoke-M1 {
                 Add-Finding -ObjectDN $krbtgtDN `
                     -FindingType "KrbtgtPasswordStale" -Severity "HIGH" `
                     -Description "krbtgt password is $krbtgtAge days old (>365). Recommend rotating twice (with replication interval between) to invalidate any stolen Kerberos tickets." `
-                    -NISTControl "IA-5(1), AC-3"
+                    -CISControl "5" -CISLevel "L1" -NISTControl "IA-5(1), AC-3"
             } elseif ($krbtgtAge -gt 180) {
                 Add-Finding -ObjectDN $krbtgtDN `
                     -FindingType "KrbtgtPasswordAgeing" -Severity "MEDIUM" `
                     -Description "krbtgt password is $krbtgtAge days old (>180). Consider scheduling a rotation." `
-                    -NISTControl "IA-5(1)"
+                    -CISControl "5" -CISLevel "L1" -NISTControl "IA-5(1)"
             }
         }
     } catch {
@@ -397,7 +397,7 @@ function Invoke-M1 {
             foreach ($u in $noPreAuth) {
                 Add-Finding -ObjectDN $u.DistinguishedName -FindingType "ASREPRoastable" -Severity "HIGH" `
                     -Description "Account has DONT_REQUIRE_PREAUTH set -- vulnerable to AS-REP roasting (offline hash cracking without domain credentials)." `
-                    -CISLevel "L1" -NISTControl "IA-5(1), AC-3"
+                    -CISControl "5" -CISLevel "L1" -NISTControl "IA-5(1), AC-3"
             }
         } else {
             Write-Host "    [OK] No accounts with pre-auth disabled" -ForegroundColor Green
@@ -425,7 +425,7 @@ function Invoke-M1 {
             foreach ($u in $daNotProtected) {
                 Add-Finding -ObjectDN $u.distinguishedName -FindingType "DANotInProtectedUsers" -Severity "MEDIUM" `
                     -Description "Domain Admin '$($u.SamAccountName)' is not a member of the Protected Users security group. Protected Users disables NTLM, DES, and RC4 authentication for the account." `
-                    -CISLevel "L1" -NISTControl "AC-6, IA-2(1)"
+                    -CISControl "5" -CISLevel "L1" -NISTControl "AC-6, IA-2(1)"
             }
         } else {
             Write-Host "    [OK] All Domain Admins are in Protected Users" -ForegroundColor Green
