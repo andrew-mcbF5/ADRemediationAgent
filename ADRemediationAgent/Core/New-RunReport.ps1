@@ -98,19 +98,65 @@ function New-RunReport {
     }
 
     # =========================================================================
-    # CIS L1 Compliance Card
+    # CIS L1 Compliance Card -- per-control pass/fail breakdown
     # =========================================================================
-    $cisHtml = ""
-    $cisTagged      = @($Findings | Where-Object { $_.CISControl -and $_.CISControl -ne "" })
-    $cisNonCompliant= @($cisTagged | Where-Object { $_.Severity -in @("CRITICAL","HIGH","MEDIUM") })
-    $cisHighCrit    = @($cisTagged | Where-Object { $_.Severity -in @("CRITICAL","HIGH") })
+    # Build a map of unique CIS control IDs to their worst severity and
+    # whether they are compliant (INFO/LOW only) or non-compliant (MEDIUM+).
+    # A finding may list multiple comma-separated controls; each is split out.
+    $cisControls = @{}
+    $sevRank = @{ "INFO"=1; "LOW"=2; "MEDIUM"=3; "HIGH"=4; "CRITICAL"=5 }
+
+    foreach ($f in $Findings) {
+        if (-not $f.CISControl -or $f.CISControl -eq "") { continue }
+        $ctrlIds = $f.CISControl -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+        foreach ($ctrl in $ctrlIds) {
+            if (-not $cisControls.ContainsKey($ctrl)) {
+                $cisControls[$ctrl] = [PSCustomObject]@{ Compliant = $true; MaxSev = "INFO"; FindingCount = 0 }
+            }
+            $cisControls[$ctrl].FindingCount++
+            if ($f.Severity -in @("CRITICAL","HIGH","MEDIUM")) {
+                $cisControls[$ctrl].Compliant = $false
+            }
+            $curRank = if ($sevRank.ContainsKey($cisControls[$ctrl].MaxSev)) { $sevRank[$cisControls[$ctrl].MaxSev] } else { 1 }
+            $newRank = if ($sevRank.ContainsKey($f.Severity))                { $sevRank[$f.Severity]                } else { 1 }
+            if ($newRank -gt $curRank) { $cisControls[$ctrl].MaxSev = $f.Severity }
+        }
+    }
+
+    $totalControls      = $cisControls.Count
+    $compliantControls  = @($cisControls.Keys | Where-Object {  $cisControls[$_].Compliant }).Count
+    $nonCompliantCtrls  = @($cisControls.Keys | Where-Object { -not $cisControls[$_].Compliant }).Count
+    $pct = if ($totalControls -gt 0) { [int](($compliantControls / $totalControls) * 100) } else { 0 }
+    $barColour = if ($pct -ge 80) { "#2ecc71" } elseif ($pct -ge 50) { "#f39c12" } else { "#e74c3c" }
+
+    $cisCtrlRows = ($cisControls.Keys | Sort-Object | ForEach-Object {
+        $item   = $cisControls[$_]
+        $status = if ($item.Compliant) { "<span style='color:#2ecc71;font-weight:bold'>PASS</span>" } `
+                  else                 { "<span style='color:#e74c3c;font-weight:bold'>FAIL</span>" }
+        $sevCol = switch ($item.MaxSev) {
+            "CRITICAL" { "#e74c3c" } "HIGH" { "#e67e22" } "MEDIUM" { "#f39c12" }
+            "LOW"      { "#2ecc71" } default { "#3498db" }
+        }
+        "<tr><td>$(HtmlEncode $_)</td><td style='color:$sevCol;font-weight:bold'>$($item.MaxSev)</td><td>$($item.FindingCount)</td><td>$status</td></tr>"
+    }) -join "`n"
+
+    $cisNoDataMsg = if ($totalControls -eq 0) { "<p style='color:#7f8c8d'>No CIS-tagged findings in this run.</p>" } else { "" }
 
     $cisComplianceHtml = @"
 <div class="card">
   <h3>CIS L1 Compliance Summary</h3>
-  <div class="metric"><span class="val" style="color:#e67e22">$($cisTagged.Count)</span><span class="lbl">CIS-Tagged Findings</span></div>
-  <div class="metric"><span class="val" style="color:#e74c3c">$($cisHighCrit.Count)</span><span class="lbl">High/Critical</span></div>
-  <div class="metric"><span class="val" style="color:#f39c12">$($cisNonCompliant.Count)</span><span class="lbl">Non-Compliant Controls</span></div>
+  <div class="metric"><span class="val" style="color:#2ecc71">$compliantControls</span><span class="lbl">Compliant</span></div>
+  <div class="metric"><span class="val" style="color:#e74c3c">$nonCompliantCtrls</span><span class="lbl">Non-Compliant</span></div>
+  <div class="metric"><span class="val" style="color:#3498db">$totalControls</span><span class="lbl">Controls Assessed</span></div>
+  <br style="clear:both"><br>
+  <div style="background:#0f3460;border-radius:4px;height:22px;width:100%;margin:10px 0;position:relative">
+    <div style="background:$barColour;border-radius:4px;height:22px;width:$pct%;min-width:2%;line-height:22px;text-align:center;font-size:0.75em;font-weight:bold;color:#fff">$pct% compliant</div>
+  </div>
+  $cisNoDataMsg
+  <table>
+    <tr><th>CIS Control</th><th>Worst Severity</th><th>Findings</th><th>Status</th></tr>
+    $cisCtrlRows
+  </table>
 </div>
 "@
 
