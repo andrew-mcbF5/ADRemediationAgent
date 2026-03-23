@@ -100,10 +100,11 @@ function Invoke-M11 {
             -UsersOnly -Server $Domain |
             Get-ADUser -Properties LastLogonDate, Description, DistinguishedName, PasswordLastSet |
             Where-Object {
-                $_.Enabled -eq $true -and
-                $_.DistinguishedName -notmatch "Domain Controllers" -and
-                $_.DistinguishedName -notmatch "Quarantine" -and
-                -not ($protectedPatterns | Where-Object { $_.SamAccountName -like $_ })
+                $user = $_
+                $user.Enabled -eq $true -and
+                $user.DistinguishedName -notmatch "Domain Controllers" -and
+                $user.DistinguishedName -notmatch "Quarantine" -and
+                -not ($protectedPatterns | Where-Object { $user.SamAccountName -like $_ })
             })
 
         Write-Host "    Found $($staleUsers.Count) stale enabled user account(s)" -ForegroundColor $(if($staleUsers.Count -gt 0){"Yellow"}else{"Green"})
